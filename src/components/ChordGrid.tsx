@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react'
 import { generateGridData, type ScaleType } from '../utils/musicEngine'
 
 export const ChordGrid = () => {
-  const [currentKey, setCurrentKey] = useState('C#')
-  const [currentMode, setCurrentMode] = useState<ScaleType>('Harmonic Minor')
+  const [currentKey, setCurrentKey] = useState('C')
+  const [currentMode, setCurrentMode] = useState<ScaleType>('Major')
   const [preferredMinorMode, setPreferredMinorMode] = useState<ScaleType>('Harmonic Minor')
   const [isDropdownOpen, setDropdownOpen] = useState(false)
+  const [isNoteGridOpen, setNoteGridOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const gridData = generateGridData(currentKey, currentMode)
@@ -125,7 +126,9 @@ export const ChordGrid = () => {
         the top 'description' column and the bottom grid.
       */}
       <div className="overflow-x-auto pb-4">
-        <div className="grid grid-cols-8 gap-3 min-w-[624px]">
+        <div className="min-w-[624px]">
+          {/* --- Static Grid Section --- */}
+          <div className="grid grid-cols-8 gap-3">
         
           {/* --- Bottom Section: 4 rows --- */}
           {Array.from({ length: 4 }).map((_, rowIndex) => {
@@ -134,7 +137,28 @@ export const ChordGrid = () => {
           return (
             <React.Fragment key={`bottom-row-${rowNum}`}>
               {/* Ghost Column (matches top description column width) */}
-              <div />
+              {rowNum === 4 ? (
+                <button
+                  onClick={() => setNoteGridOpen(!isNoteGridOpen)}
+                  className="aspect-square flex items-center justify-center rounded-lg hover:bg-stone-100 transition-colors text-stone-400 hover:text-stone-600"
+                  aria-label={isNoteGridOpen ? "Collapse note grid" : "Expand note grid"}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                    className="w-5 h-5"
+                  >
+                    {isNoteGridOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    )}
+                  </svg>
+                </button>
+              ) : <div />}
 
               {/* 7 Data Columns */}
               {Array.from({ length: 7 }).map((_, colIndex) => {
@@ -192,28 +216,46 @@ export const ChordGrid = () => {
             </React.Fragment>
           )
         })}
+          </div>
 
-          {/* --- Top Section: Note Number (7 rows) --- */}
-          {Array.from({ length: 7 }).map((_, rowIndex) => {
+          {/* --- Collapsible Animated Section --- */}
+          <div
+            className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+              isNoteGridOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="grid grid-cols-8 gap-3 pt-3">
+                {/* --- Top Section: Note Number (7 rows) --- */}
+                {Array.from({ length: 7 }).map((_, rowIndex) => {
           const rowNum = rowIndex + 1
           // "starting with row 1 as accent, ending with row 7 as accent" -> Odd rows are accented
           const isAccent = rowNum % 2 !== 0
           const textColorClass = isAccent ? 'text-blue-600' : 'text-stone-800'
+          const baseDelay = rowIndex * 30
 
           return (
             <React.Fragment key={`top-row-${rowNum}`}>
               {/* Column 1: Row Description (Row Number) */}
-              <div className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg ${textColorClass}`}>
+              <div
+                className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg ${textColorClass} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                  isNoteGridOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
+                }`}
+                style={{ transitionDelay: isNoteGridOpen ? `${baseDelay}ms` : '0ms' }}
+              >
                 {rowNum}
               </div>
 
               {/* Columns 2-8: Data Buttons */}
               {Array.from({ length: 7 }).map((_, colIndex) => {
-                const delay = (4 + rowIndex + colIndex) * 35 // Staggered delay, offset by 4 rows from above
+                const delay = baseDelay + colIndex * 30
                 return (
                   <div 
                     key={`top-cell-${rowNum}-${colIndex}`} 
-                    className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white shadow-sm font-medium ${textColorClass}`}
+                    className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white shadow-sm font-medium ${textColorClass} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                      isNoteGridOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
+                    }`}
+                    style={{ transitionDelay: isNoteGridOpen ? `${delay}ms` : '0ms' }}
                   >
                     <span
                       key={`top-content-${rowNum}-${colIndex}-${currentKey}-${currentMode}`}
@@ -231,6 +273,9 @@ export const ChordGrid = () => {
             </React.Fragment>
           )
         })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
