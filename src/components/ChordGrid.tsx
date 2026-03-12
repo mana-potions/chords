@@ -89,10 +89,8 @@ export const ChordGrid = () => {
 
           <div
             className={`absolute top-full right-0 mt-2 w-48 z-50 transition-all duration-200 ease-out origin-top-right ${
-              isDropdownOpen
-                ? 'opacity-100 translate-y-0 scale-100'
-                : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
-            }`}
+              isDropdownOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
+            } sm:right-0 sm:origin-top-right left-0 origin-top-left sm:left-auto`}
           >
               <div className="bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden">
                 <div className="p-1">
@@ -170,7 +168,7 @@ export const ChordGrid = () => {
                     <button
                       key={`bottom-btn-${rowNum}-${colIndex}`}
                       onClick={() => handleChordClick(colIndex)}
-                      className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg hover:bg-stone-100 transition-colors ${textColorClass}`}
+                      className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg hover:bg-stone-100 transition-colors select-none ${textColorClass}`}
                     >
                       {num}
                     </button>
@@ -178,7 +176,7 @@ export const ChordGrid = () => {
                 }
 
                 let content = ''
-                let styleClass = "aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white hover:bg-stone-50 active:bg-stone-100 transition-colors shadow-sm font-medium text-stone-800 p-1 break-words leading-tight"
+                let styleClass = "aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white hover:bg-stone-50 active:bg-stone-100 transition-colors shadow-sm font-medium text-stone-800 p-1 break-words leading-tight select-none"
 
                 if (rowNum === 1) {
                   content = gridData.chordNames[colIndex]
@@ -252,7 +250,7 @@ export const ChordGrid = () => {
                 return (
                   <div 
                     key={`top-cell-${rowNum}-${colIndex}`} 
-                    className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white shadow-sm font-medium ${textColorClass} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                    className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white shadow-sm font-medium select-none ${textColorClass} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                       isNoteGridOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
                     }`}
                     style={{ transitionDelay: isNoteGridOpen ? `${delay}ms` : '0ms' }}
