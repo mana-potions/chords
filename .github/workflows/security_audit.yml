@@ -1,0 +1,32 @@
+name: Security and Quality Audit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  audit_and_typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Security Audit
+        # This will fail the build if "moderate" or higher vulnerabilities are found
+        run: npm audit --audit-level=moderate
+        
+      - name: Static Type Check (TypeScript)
+        # Ensures your musicEngine logic remains type-safe
+        run: npx tsc --noEmit
