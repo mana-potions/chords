@@ -127,45 +127,6 @@ export const ChordGrid = () => {
       <div className="overflow-x-auto pb-4">
         <div className="grid grid-cols-8 gap-3 min-w-[624px]">
         
-          {/* --- Top Section: Note Number (7 rows) --- */}
-          {Array.from({ length: 7 }).map((_, rowIndex) => {
-          const rowNum = 7 - rowIndex
-          // "starting with row 1 as accent, ending with row 7 as accent" -> Odd rows are accented
-          const isAccent = rowNum % 2 !== 0
-          const textColorClass = isAccent ? 'text-blue-600' : 'text-stone-800'
-
-          return (
-            <React.Fragment key={`top-row-${rowNum}`}>
-              {/* Column 1: Row Description (Row Number) */}
-              <div className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg ${textColorClass}`}>
-                {rowNum}
-              </div>
-
-              {/* Columns 2-8: Data Buttons */}
-              {Array.from({ length: 7 }).map((_, colIndex) => {
-                const delay = (rowIndex + colIndex) * 35 // Staggered delay
-                return (
-                  <div 
-                    key={`top-cell-${rowNum}-${colIndex}`} 
-                    className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white shadow-sm font-medium ${textColorClass}`}
-                  >
-                    <span
-                      key={`top-content-${rowNum}-${colIndex}-${currentKey}-${currentMode}`}
-                      style={{
-                        animation: 'rippleFadeIn 0.4s cubic-bezier(0.2, 0, 0.2, 1) backwards',
-                        animationDelay: `${delay}ms`,
-                        display: 'inline-block'
-                      }}
-                    >
-                      {gridData.rows[rowIndex][colIndex]}
-                    </span>
-                  </div>
-                )
-              })}
-            </React.Fragment>
-          )
-        })}
-
           {/* --- Bottom Section: 4 rows --- */}
           {Array.from({ length: 4 }).map((_, rowIndex) => {
           const rowNum = rowIndex + 1
@@ -177,7 +138,7 @@ export const ChordGrid = () => {
 
               {/* 7 Data Columns */}
               {Array.from({ length: 7 }).map((_, colIndex) => {
-                if (rowNum === 1) {
+                if (rowNum === 4) {
                   const num = colIndex + 1
                   const isAccent = num % 2 !== 0
                   const textColorClass = isAccent ? 'text-blue-600' : 'text-stone-800'
@@ -195,19 +156,19 @@ export const ChordGrid = () => {
                 let content = ''
                 let styleClass = "aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white hover:bg-stone-50 active:bg-stone-100 transition-colors shadow-sm font-medium text-stone-800 p-1 break-words leading-tight"
 
-                if (rowNum === 2) {
+                if (rowNum === 1) {
                   content = gridData.chordNames[colIndex]
                   styleClass = styleClass.replace("font-medium", "font-bold")
                   styleClass += " text-sm md:text-base"
-                } else if (rowNum === 3) {
+                } else if (rowNum === 2) {
                   content = gridData.romanNumerals[colIndex]
                   styleClass += " text-sm md:text-base"
-                } else if (rowNum === 4) {
+                } else if (rowNum === 3) {
                   content = gridData.modes[colIndex]
                   styleClass += " text-[10px]" // Modes names can be long, utilize smaller font
                 }
 
-                const delay = (7 + rowIndex + colIndex) * 35 // Continue stagger from top section roughly
+                const delay = (rowIndex + colIndex) * 35
 
                 return (
                   <button 
@@ -226,6 +187,45 @@ export const ChordGrid = () => {
                       {content}
                     </span>
                   </button>
+                )
+              })}
+            </React.Fragment>
+          )
+        })}
+
+          {/* --- Top Section: Note Number (7 rows) --- */}
+          {Array.from({ length: 7 }).map((_, rowIndex) => {
+          const rowNum = rowIndex + 1
+          // "starting with row 1 as accent, ending with row 7 as accent" -> Odd rows are accented
+          const isAccent = rowNum % 2 !== 0
+          const textColorClass = isAccent ? 'text-blue-600' : 'text-stone-800'
+
+          return (
+            <React.Fragment key={`top-row-${rowNum}`}>
+              {/* Column 1: Row Description (Row Number) */}
+              <div className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg ${textColorClass}`}>
+                {rowNum}
+              </div>
+
+              {/* Columns 2-8: Data Buttons */}
+              {Array.from({ length: 7 }).map((_, colIndex) => {
+                const delay = (4 + rowIndex + colIndex) * 35 // Staggered delay, offset by 4 rows from above
+                return (
+                  <div 
+                    key={`top-cell-${rowNum}-${colIndex}`} 
+                    className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white shadow-sm font-medium ${textColorClass}`}
+                  >
+                    <span
+                      key={`top-content-${rowNum}-${colIndex}-${currentKey}-${currentMode}`}
+                      style={{
+                        animation: 'rippleFadeIn 0.4s cubic-bezier(0.2, 0, 0.2, 1) backwards',
+                        animationDelay: `${delay}ms`,
+                        display: 'inline-block'
+                      }}
+                    >
+                      {gridData.rows[6 - rowIndex][colIndex]}
+                    </span>
+                  </div>
                 )
               })}
             </React.Fragment>
