@@ -7,8 +7,8 @@ export const HomePage = () => {
     <div className="max-w-4xl mx-auto px-6 py-20 md:py-32">
       <header className="mb-12 text-center md:text-left">
         <h1 className="text-4xl md:text-6xl font-light tracking-tight text-stone-900 mb-6">
-          Chords & <br className="hidden md:block" />
-          <span className="italic font-serif">Things</span>
+          Key to <br className="hidden md:block" />
+          <span className="italic font-serif">Keys</span>
         </h1>
         <div className="w-16 h-1 bg-stone-300 mb-8 mx-auto md:mx-0 rounded-full"></div>
       </header>
