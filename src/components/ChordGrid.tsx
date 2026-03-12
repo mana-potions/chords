@@ -7,7 +7,9 @@ export const ChordGrid = () => {
   const [preferredMinorMode, setPreferredMinorMode] = useState<ScaleType>('Harmonic Minor')
   const [isDropdownOpen, setDropdownOpen] = useState(false)
   const [isNoteGridOpen, setNoteGridOpen] = useState(false)
+  const [isTitleOpen, setTitleOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLDivElement>(null)
 
   const gridData = generateGridData(currentKey, currentMode)
   const minorModes: ScaleType[] = ['Harmonic Minor', 'Melodic Minor', 'Natural Minor']
@@ -40,16 +42,40 @@ export const ChordGrid = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false)
       }
+      if (titleRef.current && !titleRef.current.contains(event.target as Node)) {
+        setTitleOpen(false)
+      }
     }
 
-    if (isDropdownOpen) {
+    if (isDropdownOpen || isTitleOpen) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isDropdownOpen])
+  }, [isDropdownOpen, isTitleOpen])
+
+  const keyOptions = [
+    { major: 'C', minor: 'C' },
+    { major: 'Db', minor: 'C#' },
+    { major: 'D', minor: 'D' },
+    { major: 'Eb', minor: 'Eb' },
+    { major: 'E', minor: 'E' },
+    { major: 'F', minor: 'F' },
+    { major: 'Gb', minor: 'F#' },
+    { major: 'G', minor: 'G' },
+    { major: 'Ab', minor: 'G#' },
+    { major: 'A', minor: 'A' },
+    { major: 'Bb', minor: 'Bb' },
+    { major: 'B', minor: 'B' },
+  ]
+
+  const handleKeySelect = (key: string, mode: ScaleType) => {
+    setCurrentKey(key)
+    setCurrentMode(mode)
+    setTitleOpen(false)
+  }
 
   return (
     <div className="w-full max-w-3xl mx-auto p-6">
@@ -61,7 +87,58 @@ export const ChordGrid = () => {
       `}</style>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <h1 className="text-3xl font-bold text-stone-800">{currentKey} {currentMode}</h1>
+        {/* --- Title / Key Selector --- */}
+        <div className="relative" ref={titleRef}>
+          <button
+            onClick={() => setTitleOpen(!isTitleOpen)}
+            className="group flex items-center gap-3 text-3xl font-bold text-stone-800 hover:text-stone-600 transition-colors focus:outline-none"
+          >
+            <span>{currentKey} {currentMode}</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className={`w-5 h-5 text-stone-300 group-hover:text-stone-400 transition-all duration-200 ${isTitleOpen ? 'rotate-180' : ''}`}
+            >
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+
+          <div
+            className={`absolute top-full left-0 mt-2 z-50 transition-all duration-200 ease-out origin-top-left ${
+              isTitleOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
+            }`}
+          >
+            <div className="bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden w-[280px] max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-2 p-2 gap-1">
+                {keyOptions.map(({ major, minor }) => (
+                  <React.Fragment key={major}>
+                    <button
+                      onClick={() => handleKeySelect(major, 'Major')}
+                      className={`text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
+                        currentKey === major && currentMode === 'Major'
+                          ? 'bg-stone-100 text-stone-900 font-semibold'
+                          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+                      }`}
+                    >
+                      {major} Major
+                    </button>
+                    <button
+                      onClick={() => handleKeySelect(minor, preferredMinorMode)}
+                      className={`text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
+                        currentKey === minor && currentMode !== 'Major'
+                          ? 'bg-stone-100 text-stone-900 font-semibold'
+                          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+                      }`}
+                    >
+                      {minor} Minor
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
         
         {/* --- Mode Selector Dropdown --- */}
         <div className="relative" ref={dropdownRef}>
