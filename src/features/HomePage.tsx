@@ -26,6 +26,12 @@ export const HomePage = () => {
         >
             Tonic Target Practice
         </button>
+        <button 
+          onClick={() => navigate('/chord-grid')}
+          className="px-8 py-3 border border-stone-300 text-stone-700 rounded-full hover:bg-stone-100 transition-colors duration-300 font-medium"
+        >
+            View Chord Grid
+        </button>
       </div>
     </div>
   )

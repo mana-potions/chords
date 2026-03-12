@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { MainLayout } from './components/MainLayout'
 import { HomePage } from './features/HomePage'
 import { TonicTargetPractice } from './components/TonicTargetPractice'
+import { ChordGrid } from './components/ChordGrid'
 
 function App() {
   console.log("App component is rendering")
@@ -16,6 +17,11 @@ function App() {
       <Route path="/tonic-target" element={
         <MainLayout bgClass="bg-green-50">
           <TonicTargetPractice />
+        </MainLayout>
+      } />
+      <Route path="/chord-grid" element={
+        <MainLayout>
+          <ChordGrid />
         </MainLayout>
       } />
       <Route path="*" element={
