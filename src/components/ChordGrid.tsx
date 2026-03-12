@@ -22,17 +22,23 @@ const KEY_OPTIONS = [
 
 // --- Hooks ---
 
-const useClickOutside = (ref: React.RefObject<HTMLElement>, callback: () => void, isActive: boolean) => {
+const useClickOutside = (ref: React.RefObject<HTMLElement | null>, callback: () => void, isActive: boolean) => {
+  const callbackRef = useRef(callback)
+
+  useEffect(() => {
+    callbackRef.current = callback
+  }, [callback])
+
   useEffect(() => {
     if (!isActive) return
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        callback()
+        callbackRef.current()
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [ref, callback, isActive])
+  }, [ref, isActive])
 }
 
 // --- Sub-Components ---
@@ -108,11 +114,9 @@ const KeySelector = ({
 }
 
 const ModeSelector = ({
-  currentMode,
   preferredMinorMode,
   onSelectMode
 }: {
-  currentMode: ScaleType
   preferredMinorMode: ScaleType
   onSelectMode: (mode: ScaleType) => void
 }) => {
@@ -171,7 +175,7 @@ const StaticRow = ({
   animKey
 }: {
   rowType: 'name' | 'roman' | 'mode'
-  data: string[]
+  data: readonly string[]
   onClickChord: (index: number) => void
   animKey: string
 }) => {
@@ -383,7 +387,6 @@ export const ChordGrid = () => {
         />
         
         <ModeSelector 
-          currentMode={currentMode}
           preferredMinorMode={preferredMinorMode}
           onSelectMode={(mode) => {
             if (currentMode !== 'Major') setCurrentMode(mode)
