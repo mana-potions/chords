@@ -20,7 +20,10 @@ const KEY_OPTIONS = [
   { major: 'B', minor: 'B' },
 ]
 
-const PICKER_ITEMS = KEY_OPTIONS.map(k => k.major)
+const ALL_PICKER_ITEMS = KEY_OPTIONS.flatMap(k => [
+  `${k.major} Major`,
+  `${k.minor} Minor`
+])
 
 // --- Hooks ---
 
@@ -56,6 +59,7 @@ const HorizontalPicker = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [visibleCount, setVisibleCount] = useState(5)
+  const [containerWidth, setContainerWidth] = useState(0)
   
   // Drag & Animation State
   const [dragOffset, setDragOffset] = useState(0)
@@ -69,8 +73,9 @@ const HorizontalPicker = ({
     const updateVisibility = () => {
       if (!containerRef.current) return
       const width = containerRef.current.offsetWidth
+      setContainerWidth(width)
       // Calculate how many items fit comfortably.
-      // Fill the space, adjusting density (80px per item)
+      // Fill the space, adjusting density (80px per item for short names)
       let count = Math.floor(width / 80)
       // Ensure odd number to have a perfect center
       if (count % 2 === 0) count -= 1
@@ -92,15 +97,12 @@ const HorizontalPicker = ({
   }, [])
 
   // Derived dimensions
-  // We assume the container width is available or default to a safe non-zero value to prevent division by zero
-  // If containerRef is null initially, this might be 0, but effect updates it.
-  const containerWidth = containerRef.current?.offsetWidth || 0
   const itemWidth = visibleCount > 0 ? containerWidth / visibleCount : 0
 
   // Navigation helper
   const handleNavigate = (direction: number) => {
-    const currentIndex = items.indexOf(selectedItem)
-    if (currentIndex === -1) return
+    let currentIndex = items.indexOf(selectedItem)
+    if (currentIndex === -1) currentIndex = 0
     const nextIndex = ((currentIndex + direction) % items.length + items.length) % items.length
     onSelectItem(items[nextIndex])
   }
@@ -209,7 +211,7 @@ const HorizontalPicker = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      className="relative w-full flex justify-center items-center overflow-hidden py-8 select-none rounded-xl cursor-grab active:cursor-grabbing touch-none"
+      className="relative w-full flex justify-center items-center py-8 select-none rounded-xl cursor-grab active:cursor-grabbing touch-none"
     >
       {/* Gradient Masks for fading edges */}
       <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-stone-50 via-stone-50/80 to-transparent z-10 pointer-events-none" />
@@ -218,7 +220,7 @@ const HorizontalPicker = ({
       {/* Bottom Shadow (Subtle) */}
       <div className="absolute left-0 right-0 bottom-0 h-4 bg-gradient-to-t from-stone-200/20 to-transparent pointer-events-none z-10" />
 
-      {visibleItems.map(({ item, offset, key }) => {
+      {containerWidth > 0 && visibleItems.map(({ item, offset, key }) => {
         // Calculate dynamic visual state based on drag
         // The item's center position relative to the viewport center (0)
         // position = (offset * itemWidth) + dragOffset
@@ -233,11 +235,14 @@ const HorizontalPicker = ({
         // Scale: 1.1 at center, drops to 0.8 min
         const scale = Math.max(1.1 - (normalizedDistance * 0.1), 0.8)
         
-        // Opacity: 1.0 at center, fades out slowly
-        const opacity = Math.max(1 - (normalizedDistance * 0.15), 0.2)
+        // Opacity: 1.0 at center, fades out towards edges
+        const relativeDist = containerWidth > 0 ? distance / (containerWidth / 2) : 0
+        const opacity = Math.max(1 - (relativeDist * 1.2), 0)
         
         // Font weight visual trick: interpolate roughly
         const isCenterVisual = normalizedDistance < 0.5
+
+        const isMinor = item.endsWith(' Minor')
 
         return (
           <button
@@ -249,6 +254,8 @@ const HorizontalPicker = ({
                 ? 'text-4xl font-extrabold text-stone-800 scale-110 z-20 drop-shadow-md' 
                 : 'text-xl font-medium text-stone-400 hover:text-stone-600 scale-90 cursor-pointer drop-shadow-sm'
               }
+              ${isMinor ? 'pt-1' : ''}
+              ${isMinor ? 'pb-1.5' : ''}
             `}
             style={{
               width: `${itemWidth}px`,
@@ -261,7 +268,9 @@ const HorizontalPicker = ({
             aria-label={`Select key ${item}`}
             aria-current={offset === 0 ? 'true' : undefined}
           >
-            {item}
+            {isMinor 
+              ? item.replace(' Minor', 'm').toLowerCase() 
+              : item.replace(' Major', 'M')}
           </button>
         )
       })}
@@ -273,12 +282,18 @@ const KeySelector = ({
   currentKey,
   currentMode,
   preferredMinorMode,
-  onSelectKey
+  onSelectKey,
+  enabledKeys,
+  onToggleKey,
+  onReset
 }: {
   currentKey: string
   currentMode: ScaleType
   preferredMinorMode: ScaleType
   onSelectKey: (key: string, mode: ScaleType) => void
+  enabledKeys: string[]
+  onToggleKey: (key: string) => void
+  onReset: () => void
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -306,32 +321,69 @@ const KeySelector = ({
           isOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
         }`}
       >
-        <div className="bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden w-[280px] max-h-[60vh] overflow-y-auto">
-          <div className="grid grid-cols-2 p-2 gap-1">
-            {KEY_OPTIONS.map(({ major, minor }) => (
-              <React.Fragment key={major}>
-                <button
-                  onClick={() => { onSelectKey(major, 'Major'); setIsOpen(false) }}
-                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
-                    currentKey === major && currentMode === 'Major'
-                      ? 'bg-stone-100 text-stone-900 font-semibold'
-                      : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-                  }`}
-                >
-                  {major} Major
-                </button>
-                <button
-                  onClick={() => { onSelectKey(minor, preferredMinorMode); setIsOpen(false) }}
-                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
-                    currentKey === minor && currentMode !== 'Major'
-                      ? 'bg-stone-100 text-stone-900 font-semibold'
-                      : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-                  }`}
-                >
-                  {minor} Minor
-                </button>
-              </React.Fragment>
-            ))}
+        <div className="bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden w-[280px] max-h-[60vh] flex flex-col">
+          <div className="overflow-y-auto">
+            <div className="grid grid-cols-[auto_1fr_auto_1fr] p-2 gap-x-2 gap-y-1 items-center w-max min-w-full">
+              {KEY_OPTIONS.map(({ major, minor }) => {
+                const majorKey = `${major} Major`
+                const minorKey = `${minor} Minor`
+                const isMajorEnabled = enabledKeys.includes(majorKey)
+                const isMinorEnabled = enabledKeys.includes(minorKey)
+
+                return (
+                  <React.Fragment key={major}>
+                    {/* Major */}
+                    <div className="flex justify-center">
+                      <input
+                        type="checkbox"
+                        checked={isMajorEnabled}
+                        onChange={() => onToggleKey(majorKey)}
+                        className="w-4 h-4 rounded text-stone-800 focus:ring-stone-500 border-gray-300"
+                      />
+                    </div>
+                    <button
+                      onClick={() => { onSelectKey(major, 'Major'); setIsOpen(false) }}
+                      className={`text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 whitespace-nowrap ${
+                        currentKey === major && currentMode === 'Major'
+                          ? 'bg-stone-100 text-stone-900 font-semibold'
+                          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+                      }`}
+                    >
+                      {majorKey}
+                    </button>
+                    
+                    {/* Minor */}
+                    <div className="flex justify-center">
+                      <input
+                        type="checkbox"
+                        checked={isMinorEnabled}
+                        onChange={() => onToggleKey(minorKey)}
+                        className="w-4 h-4 rounded text-stone-800 focus:ring-stone-500 border-gray-300"
+                      />
+                    </div>
+                    <button
+                      onClick={() => { onSelectKey(minor, preferredMinorMode); setIsOpen(false) }}
+                      className={`text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 whitespace-nowrap ${
+                        currentKey === minor && currentMode !== 'Major'
+                          ? 'bg-stone-100 text-stone-900 font-semibold'
+                          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+                      }`}
+                    >
+                      {minorKey}
+                    </button>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+          </div>
+          
+          <div className="p-2 border-t border-stone-100 bg-stone-50">
+            <button 
+              onClick={() => onReset()}
+              className="w-full py-2 bg-white border border-stone-200 rounded-lg text-sm font-medium text-stone-600 hover:text-stone-900 hover:border-stone-300 transition-colors active:bg-stone-50"
+            >
+              Empty
+            </button>
           </div>
         </div>
       </div>
@@ -567,27 +619,46 @@ export const ChordGrid = () => {
   const [currentMode, setCurrentMode] = useState<ScaleType>('Major')
   const [preferredMinorMode, setPreferredMinorMode] = useState<ScaleType>('Harmonic Minor')
   const [isNoteGridOpen, setNoteGridOpen] = useState(false)
+  const [enabledKeys, setEnabledKeys] = useState<string[]>(ALL_PICKER_ITEMS)
 
   const gridData = generateGridData(currentKey, currentMode)
   
   // Animation key triggers re-render of span animations when key/mode changes
   const animKey = `${currentKey}-${currentMode}`
 
-  // Helper to get the current key in Major representation for the picker (e.g. if key is C# minor, picker needs Db)
-  const currentPickerKey = KEY_OPTIONS.find(k => k.major === currentKey || k.minor === currentKey)?.major || 'C'
+  // Construct the string representation for the picker based on current state
+  const currentPickerItem = `${currentKey} ${currentMode === 'Major' ? 'Major' : 'Minor'}`
 
-  const handlePickerSelect = (key: string) => {
-    // Check if we need to switch to minor equivalent
-    if (currentMode !== 'Major') {
-      const option = KEY_OPTIONS.find(o => o.major === key)
-      if (option) {
-        setCurrentKey(option.minor)
+  const handlePickerSelect = (item: string) => {
+    // Parse "Root Mode" string, e.g. "C Major" or "C# Minor"
+    const lastSpaceIndex = item.lastIndexOf(' ')
+    if (lastSpaceIndex !== -1) {
+      const key = item.substring(0, lastSpaceIndex)
+      const modeStr = item.substring(lastSpaceIndex + 1) // "Major" or "Minor"
+      
+      if (modeStr === 'Minor') {
+        setCurrentKey(key)
+        setCurrentMode(preferredMinorMode)
       } else {
         setCurrentKey(key)
+        setCurrentMode('Major')
       }
     } else {
-      setCurrentKey(key)
+      // Fallback if parsing fails
+      setCurrentKey(item)
     }
+  }
+
+  const handleToggleKey = (key: string) => {
+    setEnabledKeys(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(k => k !== key)
+      } else {
+        // Re-insert in correct order based on KEY_OPTIONS
+        const newSet = new Set([...prev, key])
+        return ALL_PICKER_ITEMS.filter(k => newSet.has(k))
+      }
+    })
   }
 
   const handleChordClick = (colIndex: number) => {
@@ -620,8 +691,8 @@ export const ChordGrid = () => {
       {/* Header */}
       <div className="flex flex-col gap-8 mb-8">
         <HorizontalPicker 
-          items={PICKER_ITEMS} 
-          selectedItem={currentPickerKey} 
+          items={enabledKeys} 
+          selectedItem={currentPickerItem} 
           onSelectItem={handlePickerSelect} 
         />
         
@@ -630,9 +701,24 @@ export const ChordGrid = () => {
             currentKey={currentKey} 
             currentMode={currentMode}
             preferredMinorMode={preferredMinorMode}
+            enabledKeys={enabledKeys}
             onSelectKey={(key, mode) => {
               setCurrentKey(key)
               setCurrentMode(mode)
+              
+              // Ensure the selected key is enabled in the picker
+              const pickerItem = `${key} ${mode === 'Major' ? 'Major' : 'Minor'}`
+              setEnabledKeys(prev => {
+                if (prev.includes(pickerItem)) return prev
+                const newSet = new Set([...prev, pickerItem])
+                return ALL_PICKER_ITEMS.filter(k => newSet.has(k))
+              })
+            }}
+            onToggleKey={handleToggleKey}
+            onReset={() => {
+              setEnabledKeys(['C Major'])
+              setCurrentKey('C')
+              setCurrentMode('Major')
             }}
           />
           
