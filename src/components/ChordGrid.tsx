@@ -42,32 +42,22 @@ function midiToNoteName(midi: number): string {
 function getChordInversions(rootNote: string, chordNotes: string[]): string[][] {
     const rootMidiBase = noteToMidi[rootNote]; 
     if (rootMidiBase === undefined) return [];
-
-    // 1. Construct MIDI numbers for the root position chord
-    // We'll anchor the root at C4 (60) or nearby to keep it centered
-    // Actually, let's just use midi values starting around 60 (C4)
-    const baseMidi = 60 + rootMidiBase; // This might put B at 71 (B4), C at 60 (C4)
     
-    // We need to map the chordNotes (which are just names) to MIDI numbers
-    // ensuring they stack upwards from the root.
+    // Construct MIDI numbers for the root position chord, starting in the 4th octave (MIDI 60-71)
+    // and stacking notes upwards to form close voicings.
     const rootPositionMidi: number[] = [];
-    let lastMidi = -1;
-
-    // Re-order chordNotes so the first one is the rootNote (it should be coming from getDiatonicChordTones already sorted by interval)
-    // getDiatonicChordTones returns [Root, 3rd, 5th, 7th].
 
     chordNotes.forEach((noteName, i) => {
         const m = noteToMidi[noteName];
-        // Find the lowest midi for this note that is >= lastMidi
-        // If i === 0, we can anchor to C4 range (48-59 + offset)
-        // Let's explicitly place the root in octave 4 (midi 60-71)
+        if (m === undefined) return; // Should not happen with valid data, but good practice.
+
         if (i === 0) {
+            // Place the root note in the 4th octave.
             rootPositionMidi.push(60 + m); // e.g. C4=60, B4=71
         } else {
-            let current = (Math.floor(rootPositionMidi[0] / 12) * 12) + m; 
-            // Ensure it is strictly above the previous note? 
-            // Usually chords are stacked thirds.
-            // We just need to find the specific octave that makes it sit right above previous
+            // For subsequent notes, find the correct octave to place it above the previous note.
+            const rootOctaveBase = Math.floor(rootPositionMidi[0] / 12) * 12;
+            let current = rootOctaveBase + m;
             while (current <= rootPositionMidi[i-1]) {
                 current += 12;
             }
@@ -728,6 +718,12 @@ const ModeSelector = ({
   )
 }
 
+const STATIC_ROW_CONFIG = {
+  name: { fontClass: "font-bold", textClass: "text-sm md:text-base", rowIndex: 0 },
+  roman: { fontClass: "font-medium", textClass: "text-sm md:text-base", rowIndex: 1 },
+  mode: { fontClass: "font-medium", textClass: "text-[10px]", rowIndex: 2 },
+}
+
 const StaticRow = ({
   rowType,
   data,
@@ -741,19 +737,7 @@ const StaticRow = ({
   onLongPressChord: (index: number) => void
   animKey: string
 }) => {
-  // Styles based on row type
-  let fontClass = "font-medium"
-  let textClass = "text-sm md:text-base"
-  
-  if (rowType === 'name') {
-    fontClass = "font-bold"
-  } else if (rowType === 'mode') {
-    textClass = "text-[10px]"
-  }
-
-  // Row index for animation delay calculation (Name=0, Roman=1, Mode=2)
-  const rowIndex = rowType === 'name' ? 0 : rowType === 'roman' ? 1 : 2
-
+  const { fontClass, textClass, rowIndex } = STATIC_ROW_CONFIG[rowType];
   return (
     <>
       <div /> {/* Ghost Column */}
