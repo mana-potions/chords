@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { generateGridData, type ScaleType, getChordInversions, MINOR_MODES, KEY_OPTIONS, ALL_PICKER_ITEMS, ENHARMONICS } from '../utils/musicEngine'
+import { generateGridData, type ScaleType, getChordInversions, MINOR_MODES, KEY_OPTIONS, ALL_PICKER_ITEMS, ENHARMONICS, noteToMidi } from '../utils/musicEngine'
 import { PianoKeyboard } from './PianoKeyboard'
 import { useClickOutside } from '../hooks/useClickOutside'
+import { useAudioEngine } from '../hooks/useAudioEngine'
 
 // --- Sub-Components ---
 
@@ -236,11 +237,13 @@ const HorizontalPicker = ({
 const InfoModal = ({
   isOpen,
   onClose,
-  chordData
+  chordData,
+  onPlayInversion
 }: {
   isOpen: boolean
   onClose: () => void
   chordData: { name: string; notes: string[]; inversions: string[][] } | null
+  onPlayInversion: (notes: string[]) => void
 }) => {
   const [isVisible, setIsVisible] = useState(false)
   const [shouldRender, setShouldRender] = useState(false)
@@ -295,14 +298,17 @@ const InfoModal = ({
 
         <div className="grid grid-cols-2 gap-6 mb-8">
             {['Root Position', '1st Inversion', '2nd Inversion', '3rd Inversion'].map((label, i) => (
-                <div key={label} className="flex flex-col items-center">
+                <div key={label} className="flex flex-col items-center w-full">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">{label}</h4>
-                    <div className="w-full bg-stone-50 rounded-lg p-2 shadow-inner">
+                    <button 
+                        onClick={() => onPlayInversion(displayData.inversions[i])}
+                        className="w-full bg-stone-50 rounded-lg p-2 shadow-inner hover:bg-stone-100 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-stone-200"
+                    >
                         <PianoKeyboard 
                             highlightedNotes={displayData.inversions[i]} 
-                            className="w-full"
+                            className="w-full pointer-events-none"
                         />
-                    </div>
+                    </button>
                 </div>
             ))}
         </div>
@@ -622,7 +628,7 @@ const ControlsRow = ({
           <button
             key={`control-${colIndex}`}
             onClick={() => onClickChord(colIndex)}
-            className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg hover:bg-stone-100 transition-colors select-none ${isAccent ? 'text-blue-600' : 'text-stone-800'}`}
+            className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg hover:bg-stone-100 transition-colors select-none ${isAccent ? 'text-cyan-500' : 'text-stone-800'}`}
           >
             {num}
           </button>
@@ -635,20 +641,65 @@ const ControlsRow = ({
 const NoteGrid = ({
   rows,
   animKey,
-  isVisible
+  isVisible,
+  onPlayNote
 }: {
   rows: string[][]
   animKey: string
   isVisible: boolean
+  onPlayNote: (note: string) => void
 }) => {
+  const [flashState, setFlashState] = useState<Record<string, number>>({});
+
+  // Helper to reliably parse pitch classes including double sharps
+  const resolveMidi = (note: string): number => {
+    const cleanNote = note.replace(/[0-9-]/g, '');
+    if (noteToMidi[cleanNote] !== undefined) return noteToMidi[cleanNote];
+    const doubleSharps: Record<string, number> = {
+      'F##': 7, 'Fx': 7,
+      'C##': 2, 'Cx': 2,
+      'G##': 9, 'Gx': 9,
+      'D##': 4, 'Dx': 4,
+      'A##': 11, 'Ax': 11
+    };
+    return doubleSharps[cleanNote] ?? 0;
+  };
+
+  const rootMidiBase = resolveMidi(rows[6][0]);
+  
+  const scaleMidi = rows[6].map(noteStr => {
+    let m = resolveMidi(noteStr);
+    while (m < rootMidiBase) m += 12; // Ensure the scale only moves upward from the root
+    return m;
+  });
+
+  const getNoteToPlay = (rowIndex: number, colIndex: number) => {
+    const absDegree = rowIndex + colIndex;
+    const octaves = Math.floor(absDegree / 7);
+    const degree = absDegree % 7;
+    
+    // Base MIDI 48 is C3, making the top left corner the lowest note
+    const midi = scaleMidi[degree] + octaves * 12 + 48; 
+    
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    return `${notes[midi % 12]}${octave}`;
+  };
+
+  const handleCellClick = (rowIndex: number, colIndex: number, noteToPlay: string) => {
+    onPlayNote(noteToPlay);
+    const cellKey = `${rowIndex}-${colIndex}`;
+    setFlashState(prev => ({ ...prev, [cellKey]: (prev[cellKey] || 0) + 1 }));
+  };
+
   return (
     <div
       className={`grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
         isVisible ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
       }`}
     >
-      <div className="overflow-hidden">
-        <div className="grid grid-cols-8 gap-3 pt-3">
+      <div className="overflow-hidden px-1">
+        <div className="grid grid-cols-8 gap-3 pt-3 pb-2">
           {Array.from({ length: 7 }).map((_, rowIndex) => {
             const rowNum = rowIndex + 1
             const isAccent = rowNum % 2 !== 0
@@ -663,7 +714,7 @@ const NoteGrid = ({
               <React.Fragment key={`note-row-${rowNum}`}>
                 {/* Row Number */}
                 <div
-                  className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg ${isAccent ? 'text-blue-600' : 'text-stone-800'} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                  className={`aspect-square flex items-center justify-center font-bold text-xl rounded-lg ${isAccent ? 'text-cyan-500' : 'text-stone-800'} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                     isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
                   }`}
                   style={{ transitionDelay: isVisible ? `${baseDelay}ms` : '0ms' }}
@@ -674,16 +725,27 @@ const NoteGrid = ({
                 {/* Note Cells */}
                 {rowData.map((note, colIndex) => {
                   const delay = baseDelay + colIndex * 30
+                  const cellKey = `${rowIndex}-${colIndex}`
+                  const flashCount = flashState[cellKey] || 0
+                  
                   return (
-                    <div
+                    <button
                       key={`note-${rowIndex}-${colIndex}`}
-                      className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white shadow-sm font-medium select-none ${isAccent ? 'text-blue-600' : 'text-stone-800'} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                      onClick={() => handleCellClick(rowIndex, colIndex, getNoteToPlay(rowIndex, colIndex))}
+                      className={`relative aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white hover:bg-stone-50 active:bg-stone-100 cursor-pointer focus:outline-none shadow-sm font-medium select-none ${isAccent ? 'text-cyan-500' : 'text-stone-800'} transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                         isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
                       }`}
                       style={{ transitionDelay: isVisible ? `${delay}ms` : '0ms' }}
                     >
+                      {flashCount > 0 && (
+                        <div 
+                          key={flashCount}
+                          className="absolute inset-0 rounded-lg animate-border-blink pointer-events-none"
+                        />
+                      )}
                       <span
                         key={`${animKey}-${rowIndex}-${colIndex}`}
+                        className="relative z-10"
                         style={{
                           animation: 'rippleFadeIn 0.4s cubic-bezier(0.2, 0, 0.2, 1) backwards',
                           animationDelay: `${delay}ms`,
@@ -692,7 +754,7 @@ const NoteGrid = ({
                       >
                         {note}
                       </span>
-                    </div>
+                    </button>
                   )
                 })}
               </React.Fragment>
@@ -713,6 +775,7 @@ export const ChordGrid = () => {
   const [isNoteGridOpen, setNoteGridOpen] = useState(false)
   const [enabledKeys, setEnabledKeys] = useState<string[]>(ALL_PICKER_ITEMS)
   const [modalData, setModalData] = useState<{ name: string; notes: string[]; inversions: string[][] } | null>(null)
+  const { playSound } = useAudioEngine()
 
   const gridData = generateGridData(currentKey, currentMode)
   
@@ -754,7 +817,7 @@ export const ChordGrid = () => {
     })
   }
 
-  const handleLongPress = (index: number) => {
+  const handleLongPress = async (index: number) => {
     const chordName = gridData.chordNames[index];
     
     // Extract 1, 3, 5, 7 from the grid rows (Scale degrees 1, 3, 5, 7)
@@ -766,10 +829,15 @@ export const ChordGrid = () => {
 
     const notes = [root, third, fifth, seventh]
     const inversions = getChordInversions(root, notes);
+    
+    if (inversions.length > 0) {
+      await playSound(inversions[0], '2n');
+    }
+
     setModalData({ name: chordName, notes, inversions });
   }
 
-  const handleChordClick = (colIndex: number) => {
+  const handleChordClick = async (colIndex: number) => {
     // 1. Identify new Root (row 6 is the 1st degree/scale root)
     const newRoot = gridData.rows[6][colIndex]
 
@@ -777,6 +845,17 @@ export const ChordGrid = () => {
     const chordName = gridData.chordNames[colIndex]
     const suffix = chordName.slice(newRoot.length)
     const isMinor = suffix.startsWith('m') || suffix.startsWith('dim')
+
+    // Play audio for the chord
+    const third = gridData.rows[4][colIndex]
+    const fifth = gridData.rows[2][colIndex]
+    const seventh = gridData.rows[0][colIndex]
+    const notes = [newRoot, third, fifth, seventh]
+    const inversions = getChordInversions(newRoot, notes);
+    if (inversions.length > 0) {
+      await playSound(inversions[0], '2n');
+    }
+    
     const modeString = isMinor ? 'Minor' : 'Major'
 
     // 3. Normalize Root to match available keys if possible
@@ -813,6 +892,13 @@ export const ChordGrid = () => {
         @keyframes rippleFadeIn {
           0% { opacity: 0; transform: scale(0.9); }
           100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes borderBlink {
+          0% { box-shadow: inset 0 0 0 2px #06b6d4; background-color: rgba(6, 182, 212, 0.1); }
+          100% { box-shadow: inset 0 0 0 0px transparent; background-color: transparent; }
+        }
+        .animate-border-blink {
+          animation: borderBlink 0.3s ease-out forwards;
         }
       `}</style>
 
@@ -865,7 +951,7 @@ export const ChordGrid = () => {
         <div className="min-w-[624px]">
           
           {/* Static Section (Chord Info & Controls) */}
-          <div className="grid grid-cols-8 gap-3">
+          <div className="grid grid-cols-8 gap-3 px-1">
             <StaticRow rowType="name" data={gridData.chordNames} onClickChord={handleChordClick} onLongPressChord={handleLongPress} animKey={animKey} />
             <StaticRow rowType="roman" data={gridData.romanNumerals} onClickChord={handleChordClick} onLongPressChord={handleLongPress} animKey={animKey} />
             <StaticRow rowType="mode" data={gridData.modes} onClickChord={handleChordClick} onLongPressChord={handleLongPress} animKey={animKey} />
@@ -881,12 +967,14 @@ export const ChordGrid = () => {
             rows={gridData.rows} 
             isVisible={isNoteGridOpen} 
             animKey={animKey} 
+            onPlayNote={(note) => playSound(note)}
           />
           
           <InfoModal 
             isOpen={modalData !== null} 
             onClose={() => setModalData(null)}
             chordData={modalData}
+          onPlayInversion={(notes) => playSound(notes, '2n')}
           />
 
         </div>

@@ -1,7 +1,8 @@
 import { useState, useRef, useMemo } from 'react'
-import { KEY_OPTIONS, generateGridData, type ScaleType, noteToMidi } from '../utils/musicEngine'
+import { KEY_OPTIONS, generateGridData, type ScaleType, noteToMidi, getChordInversions } from '../utils/musicEngine'
 import { PianoKeyboard } from './PianoKeyboard'
 import { useClickOutside } from '../hooks/useClickOutside'
+import { useAudioEngine } from '../hooks/useAudioEngine'
 
 interface GameStep {
   name: string;
@@ -102,7 +103,7 @@ const MinorModeSelector = ({
   )
 }
 
-const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialLoad, isRoundComplete, onNextRound }: {
+const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialLoad, isRoundComplete, onNextRound, onReplayChord, onPlayTonic }: {
   gameSteps: GameStep[];
   bouncingStep: number | null;
   currentChord: { root: string, type: string } | null;
@@ -110,6 +111,8 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
   isInitialLoad: boolean;
   isRoundComplete: boolean;
   onNextRound: () => void;
+  onReplayChord: (index: number) => void;
+  onPlayTonic: () => void;
 }) => {
   return (
     <div 
@@ -124,18 +127,20 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
         <h2 className="text-sm font-bold uppercase tracking-widest text-stone-400 mb-6">Passing Chords</h2>
         <div className="flex justify-center items-end gap-24">
           {gameSteps.map((step, index) => (
-            <div
+            <button
               key={index}
-              className={`transition-all duration-300 ${
+              disabled={!step.isCompleted}
+              onClick={() => step.isCompleted ? onReplayChord(index) : undefined}
+              className={`transition-all duration-300 focus:outline-none ${
                 step.isCompleted 
-                  ? 'opacity-100 text-yellow-500 scale-110' 
-                  : 'opacity-30 text-stone-600'
+                  ? 'opacity-100 text-yellow-500 scale-110 hover:scale-[1.15] cursor-pointer' 
+                  : 'opacity-30 text-stone-600 cursor-default'
               } ${bouncingStep === index ? 'animate-pop' : ''}`}
             >
               <h3 className="text-7xl font-bold tracking-tighter">
                 {step.label}
               </h3>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -143,10 +148,13 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
       {/* Tonic Chord (The 'I') */}
       {currentChord && (
         <div className="text-center">
-          <div className="animate-in fade-in zoom-in duration-700 mb-8">
+          <button 
+            onClick={onPlayTonic}
+            className="block mx-auto animate-in fade-in zoom-in duration-700 mb-8 focus:outline-none hover:scale-105 transition-transform cursor-pointer"
+          >
             <h1 className="text-9xl font-bold text-stone-800 tracking-tighter drop-shadow-sm">{currentChord.root}</h1>
             <p className="text-5xl font-serif italic text-stone-500 mt-4">{currentChord.type}</p>
-          </div>
+          </button>
           
           <button
             onClick={onNextRound}
@@ -183,6 +191,11 @@ export const TonicTargetGame = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isExiting, setIsExiting] = useState(false);
   const [roundKey, setRoundKey] = useState(0); // Used to force re-mount/animation of GameArea
+
+  const [playedNotesHistory, setPlayedNotesHistory] = useState<Record<number, string[]>>({});
+  const [playbackKeys, setPlaybackKeys] = useState<string[]>([]);
+  
+  const { playSound } = useAudioEngine();
 
   const [currentChord] = useState<{ root: string, type: string } | null>(() => {
     // Generate a random chord on mount
@@ -249,9 +262,10 @@ export const TonicTargetGame = () => {
     return newTargetNotes;
   }, [activeStepIndex, chordState, gameSteps, minorMode]);
 
-  const completeStep = (index: number) => {
+  const completeStep = (index: number, finalKeys: string[]) => {
     setCompletedStepIndex(index);
     setBouncingStep(index);
+    setPlayedNotesHistory(prev => ({ ...prev, [index]: finalKeys }));
     setTimeout(() => setBouncingStep(null), 1000);
 
     if (index < gameSteps.length - 1) {
@@ -266,6 +280,11 @@ export const TonicTargetGame = () => {
     } else {
       // Round Complete!
       setIsRoundComplete(true);
+      setTimeout(() => {
+        setFoundNotes([]);
+        setHighlightedKeys([]);
+        setErrorKeys([]);
+      }, 800);
     }
   };
 
@@ -288,14 +307,46 @@ export const TonicTargetGame = () => {
       setFoundNotes([]);
       setHighlightedKeys([]);
       setErrorKeys([]);
+      setPlayedNotesHistory({});
+      setPlaybackKeys([]);
       setCompletedStepIndex(null);
       setIsRoundComplete(false);
       setIsExiting(false);
     }, 300); // Animation duration
   };
 
-  const handlePlayNote = (note: string) => {
+  const handleReplayChord = async (stepIndex: number) => {
+    const notes = playedNotesHistory[stepIndex];
+    if (notes && notes.length > 0) {
+      await playSound(notes, '2n');
+      setPlaybackKeys(notes);
+      setTimeout(() => setPlaybackKeys([]), 500);
+    }
+  };
+
+  const handlePlayTonic = async () => {
+    if (!chordState) return;
+    
+    const scaleType = chordState.type === 'Major' ? 'Major' : minorMode as ScaleType;
+    const gridData = generateGridData(chordState.root, scaleType);
+    
+    const root = gridData.rows[6][0];
+    const third = gridData.rows[4][0];
+    const fifth = gridData.rows[2][0];
+    const seventh = gridData.rows[0][0];
+
+    const notes = [root, third, fifth, seventh].filter(Boolean);
+    const inversions = getChordInversions(root, notes);
+    
+    if (inversions.length > 0) {
+      await playSound(inversions[0], '2n');
+    }
+  };
+
+  const handlePlayNote = async (note: string) => {
     if (activeStepIndex >= gameSteps.length || isExiting || isRoundComplete) return;
+
+    await playSound(note);
 
     const pitchClass = note.replace(/[0-9-]/g, '');
     const playedMidi = noteToMidi[pitchClass];
@@ -308,10 +359,11 @@ export const TonicTargetGame = () => {
       if (!foundNotes.includes(matchedTargetNote)) {
           const newFound = [...foundNotes, matchedTargetNote];
           setFoundNotes(newFound);
-          setHighlightedKeys(prev => [...prev, note]);
+          const newHighlighted = [...highlightedKeys, note];
+          setHighlightedKeys(newHighlighted);
 
           if (newFound.length >= targetNotes.length) {
-              completeStep(activeStepIndex);
+              completeStep(activeStepIndex, newHighlighted);
           }
       } else {
           // Already found, just highlight this specific key instance too if not already
@@ -368,12 +420,14 @@ export const TonicTargetGame = () => {
         isInitialLoad={isInitialLoad}
         isRoundComplete={isRoundComplete}
         onNextRound={handleNextRound}
+        onReplayChord={handleReplayChord}
+        onPlayTonic={handlePlayTonic}
       />
 
       {/* Bottom: Piano Keyboard */}
       <div className="w-full mt-auto">
         <PianoKeyboard 
-          highlightedNotes={highlightedKeys} 
+          highlightedNotes={Array.from(new Set([...highlightedKeys, ...playbackKeys]))} 
           incorrectNotes={errorKeys}
           className="w-full h-auto block"
           interactive={true}
