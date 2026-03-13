@@ -386,13 +386,11 @@ const HorizontalPicker = ({
                 ? 'text-4xl font-extrabold text-stone-800 scale-110 z-20 drop-shadow-md' 
                 : 'text-xl font-medium text-stone-400 hover:text-stone-600 scale-90 cursor-pointer drop-shadow-sm'
               }
-              ${isMinor ? 'pt-1' : ''}
-              ${isMinor ? 'pb-1.5' : ''}
             `}
             style={{
               width: `${itemWidth}px`,
               // We use transform to position items relative to center
-              transform: `translateX(${position}px) scale(${scale})`,
+              transform: `translateX(${position}px) scale(${scale}) ${isMinor ? 'translateY(-8%)' : ''}`,
               opacity: opacity,
               transition: isAnimating ? 'transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms' : 'none',
               textShadow: isCenterVisual ? '0 0 30px rgba(168, 162, 158, 0.8)' : undefined
