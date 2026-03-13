@@ -307,6 +307,8 @@ const InfoModal = ({
                         <PianoKeyboard 
                             highlightedNotes={displayData.inversions[i]} 
                             className="w-full pointer-events-none"
+                            startMidi={48}
+                            endMidi={72}
                         />
                     </button>
                 </div>
@@ -766,6 +768,11 @@ const NoteGrid = ({
   )
 }
 
+// Helper to shift chord inversions down one octave for a warmer sound
+const shiftOctavesDown = (inversions: string[][]) => {
+  return inversions.map(inv => inv.map(n => n.replace(/\d+/, d => String(Number(d) - 1))));
+};
+
 // --- Main Component ---
 
 export const ChordGrid = () => {
@@ -828,7 +835,7 @@ export const ChordGrid = () => {
     const seventh = gridData.rows[0][index]
 
     const notes = [root, third, fifth, seventh]
-    const inversions = getChordInversions(root, notes);
+    const inversions = shiftOctavesDown(getChordInversions(root, notes));
     
     if (inversions.length > 0) {
       await playSound(inversions[0], '2n');
@@ -851,7 +858,7 @@ export const ChordGrid = () => {
     const fifth = gridData.rows[2][colIndex]
     const seventh = gridData.rows[0][colIndex]
     const notes = [newRoot, third, fifth, seventh]
-    const inversions = getChordInversions(newRoot, notes);
+    const inversions = shiftOctavesDown(getChordInversions(newRoot, notes));
     if (inversions.length > 0) {
       await playSound(inversions[0], '2n');
     }

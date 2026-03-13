@@ -6,19 +6,19 @@ export const PianoKeyboard = ({
   incorrectNotes = [],
   className = "",
   interactive = false,
+  startMidi = 60,
+  endMidi = 84,
   onPlayNote
 }: { 
   highlightedNotes: string[]
   incorrectNotes?: string[]
   className?: string 
   interactive?: boolean
+  startMidi?: number
+  endMidi?: number
   onPlayNote?: (note: string) => void
 }) => {
   const [activeKeys, setActiveKeys] = useState<number[]>([])
-  // Fixed range C4 to C6 (2 octaves + 1 note) to accommodate most close voicings
-  // MIDI 60 (C4) to 84 (C6)
-  const startMidi = 60; 
-  const endMidi = 84; 
   
   const isHighlighted = (midi: number) => {
     const noteName = midiToNoteName(midi);

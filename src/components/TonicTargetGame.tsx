@@ -479,6 +479,8 @@ export const TonicTargetGame = () => {
           incorrectNotes={errorKeys}
           className="w-full h-auto block"
           interactive={true}
+          startMidi={48}
+          endMidi={72}
           onPlayNote={handlePlayNote}
         />
       </div>
