@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { MainLayout } from './components/MainLayout'
 import { HomePage } from './features/HomePage'
 import { TonicTargetPractice } from './components/TonicTargetPractice'
+import { TonicTargetGame } from './components/TonicTargetGame'
 import { ChordGrid } from './components/ChordGrid'
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
           <TonicTargetPractice />
         </MainLayout>
       } />
+      <Route path="/tonic-target-game" element={<TonicTargetGame />} />
       <Route path="/chord-grid" element={
         <MainLayout>
           <ChordGrid />

@@ -1,27 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { generateGridData, type ScaleType, getChordInversions, MINOR_MODES, KEY_OPTIONS, ALL_PICKER_ITEMS, ENHARMONICS } from '../utils/musicEngine'
 import { PianoKeyboard } from './PianoKeyboard'
-
-// --- Hooks ---
-
-const useClickOutside = (ref: React.RefObject<HTMLElement | null>, callback: () => void, isActive: boolean) => {
-  const callbackRef = useRef(callback)
-
-  useEffect(() => {
-    callbackRef.current = callback
-  }, [callback])
-
-  useEffect(() => {
-    if (!isActive) return
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        callbackRef.current()
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [ref, isActive])
-}
+import { useClickOutside } from '../hooks/useClickOutside'
 
 // --- Sub-Components ---
 

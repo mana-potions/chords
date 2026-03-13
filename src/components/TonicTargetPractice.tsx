@@ -70,7 +70,7 @@ export const TonicTargetPractice = () => {
 
       <div className="mt-16 flex justify-center">
         <button
-          onClick={() => navigate('/chord-grid')}
+          onClick={() => navigate('/tonic-target-game')}
           className="px-10 py-4 bg-stone-800 text-stone-50 text-lg rounded-full hover:bg-stone-700 transition-all duration-300 font-medium shadow-sm hover:shadow-xl hover:-translate-y-0.5"
         >
           Begin Playing
