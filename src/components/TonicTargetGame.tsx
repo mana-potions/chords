@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { KEY_OPTIONS, generateGridData, type ScaleType, noteToMidi, getChordInversions } from '../utils/musicEngine'
 import { PianoKeyboard } from './PianoKeyboard'
 import { useClickOutside } from '../hooks/useClickOutside'
@@ -195,6 +195,28 @@ export const TonicTargetGame = () => {
   const [playedNotesHistory, setPlayedNotesHistory] = useState<Record<number, string[]>>({});
   const [playbackKeys, setPlaybackKeys] = useState<string[]>([]);
   
+  const playbackTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(playbackTimersRef.current).forEach(clearTimeout);
+    };
+  }, []);
+
+  const triggerPlaybackFlash = (notes: string[]) => {
+    setPlaybackKeys(prev => Array.from(new Set([...prev, ...notes])));
+    
+    notes.forEach(note => {
+      if (playbackTimersRef.current[note]) {
+        clearTimeout(playbackTimersRef.current[note]);
+      }
+      playbackTimersRef.current[note] = setTimeout(() => {
+        setPlaybackKeys(prev => prev.filter(k => k !== note));
+        delete playbackTimersRef.current[note];
+      }, 500);
+    });
+  };
+
   const { playSound } = useAudioEngine();
 
   const [currentChord] = useState<{ root: string, type: string } | null>(() => {
@@ -309,6 +331,8 @@ export const TonicTargetGame = () => {
       setErrorKeys([]);
       setPlayedNotesHistory({});
       setPlaybackKeys([]);
+      Object.values(playbackTimersRef.current).forEach(clearTimeout);
+      playbackTimersRef.current = {};
       setCompletedStepIndex(null);
       setIsRoundComplete(false);
       setIsExiting(false);
@@ -319,8 +343,7 @@ export const TonicTargetGame = () => {
     const notes = playedNotesHistory[stepIndex];
     if (notes && notes.length > 0) {
       await playSound(notes, '2n');
-      setPlaybackKeys(notes);
-      setTimeout(() => setPlaybackKeys([]), 500);
+      triggerPlaybackFlash(notes);
     }
   };
 
@@ -339,7 +362,32 @@ export const TonicTargetGame = () => {
     const inversions = getChordInversions(root, notes);
     
     if (inversions.length > 0) {
-      await playSound(inversions[0], '2n');
+      let inversionToPlay = inversions[0];
+
+      // Try to voice lead smoothly from the final played chord
+      if (isRoundComplete && gameSteps.length > 0) {
+        const finalStepNotes = playedNotesHistory[gameSteps.length - 1];
+        
+        if (finalStepNotes && finalStepNotes.length > 0) {
+          const getAverageMidi = (notesArr: string[]) => {
+            const sum = notesArr.reduce((acc, noteStr) => {
+              const pitchClass = noteStr.replace(/[0-9-]/g, '');
+              const octaveMatch = noteStr.match(/-?\d+/);
+              const octave = octaveMatch ? parseInt(octaveMatch[0], 10) : 4;
+              const midiBase = resolveMidi(pitchClass) ?? 0;
+              return acc + (midiBase + (octave + 1) * 12);
+            }, 0);
+            return sum / notesArr.length;
+          };
+
+          const targetCenter = getAverageMidi(finalStepNotes);
+          
+          inversionToPlay = inversions.reduce((closest, current) => Math.abs(getAverageMidi(current) - targetCenter) < Math.abs(getAverageMidi(closest) - targetCenter) ? current : closest);
+        }
+      }
+
+      await playSound(inversionToPlay, '2n');
+      triggerPlaybackFlash(inversionToPlay);
     }
   };
 
