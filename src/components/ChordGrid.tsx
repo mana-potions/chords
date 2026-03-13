@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { generateGridData, type ScaleType } from '../utils/musicEngine'
 
 // --- Constants & Types ---
@@ -19,6 +19,8 @@ const KEY_OPTIONS = [
   { major: 'Bb', minor: 'Bb' },
   { major: 'B', minor: 'B' },
 ]
+
+const PICKER_ITEMS = KEY_OPTIONS.map(k => k.major)
 
 // --- Hooks ---
 
@@ -42,6 +44,230 @@ const useClickOutside = (ref: React.RefObject<HTMLElement | null>, callback: () 
 }
 
 // --- Sub-Components ---
+
+const HorizontalPicker = ({
+  items,
+  selectedItem,
+  onSelectItem
+}: {
+  items: string[]
+  selectedItem: string
+  onSelectItem: (item: string) => void
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [visibleCount, setVisibleCount] = useState(5)
+  
+  // Drag & Animation State
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const isDragging = useRef(false)
+  const startX = useRef(0)
+  const initialX = useRef(0)
+  const hasMoved = useRef(false)
+
+  useEffect(() => {
+    const updateVisibility = () => {
+      if (!containerRef.current) return
+      const width = containerRef.current.offsetWidth
+      // Calculate how many items fit comfortably.
+      // Fill the space, adjusting density (80px per item)
+      let count = Math.floor(width / 80)
+      // Ensure odd number to have a perfect center
+      if (count % 2 === 0) count -= 1
+      // Constraints: Min 3
+      if (count < 3) count = 3
+      
+      setVisibleCount(count)
+    }
+
+    // Initial check
+    updateVisibility()
+
+    const observer = new ResizeObserver(updateVisibility)
+    if (containerRef.current) {
+      observer.observe(containerRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
+
+  // Derived dimensions
+  // We assume the container width is available or default to a safe non-zero value to prevent division by zero
+  // If containerRef is null initially, this might be 0, but effect updates it.
+  const containerWidth = containerRef.current?.offsetWidth || 0
+  const itemWidth = visibleCount > 0 ? containerWidth / visibleCount : 0
+
+  // Navigation helper
+  const handleNavigate = (direction: number) => {
+    const currentIndex = items.indexOf(selectedItem)
+    if (currentIndex === -1) return
+    const nextIndex = ((currentIndex + direction) % items.length + items.length) % items.length
+    onSelectItem(items[nextIndex])
+  }
+
+  // Pointer Events (Mouse + Touch)
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsAnimating(false)
+    isDragging.current = true
+    hasMoved.current = false
+    initialX.current = e.clientX
+    startX.current = e.clientX - dragOffset
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return
+    
+    if (Math.abs(e.clientX - initialX.current) > 5) {
+      hasMoved.current = true
+    }
+
+    const newOffset = e.clientX - startX.current
+    setDragOffset(newOffset)
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isDragging.current) return
+    isDragging.current = false
+    ;(e.target as HTMLElement).releasePointerCapture(e.pointerId)
+
+    if (itemWidth === 0) return
+
+    // If it was just a tap, let the click handler take over
+    if (!hasMoved.current) {
+      setDragOffset(0)
+      return
+    }
+
+    // Calculate which item we landed closest to
+    // Dragging left (negative offset) means we want to see items to the right (positive index increment)
+    const movedItems = -Math.round(dragOffset / itemWidth)
+    const targetOffset = -movedItems * itemWidth
+
+    // Animate to snap position
+    setIsAnimating(true)
+    setDragOffset(targetOffset)
+
+    // After animation, actually update the selection and reset offset
+    setTimeout(() => {
+      setIsAnimating(false)
+      setDragOffset(0)
+      if (movedItems !== 0) {
+        handleNavigate(movedItems)
+      }
+    }, 200) // matches transition duration
+  }
+
+  const handleItemClick = (offset: number) => {
+    if (hasMoved.current) return
+
+    const targetOffset = -offset * itemWidth
+    
+    setIsAnimating(true)
+    setDragOffset(targetOffset)
+    
+    setTimeout(() => {
+      setIsAnimating(false)
+      setDragOffset(0)
+      handleNavigate(offset)
+    }, 200)
+  }
+
+  // --- Rendering Logic ---
+
+  if (items.length === 0) return null
+
+  // Determine the window of items to show based on selectedItem
+  // We normalize to finding the major key equivalent if needed, though parent passes controlled value
+  let centerIndex = items.indexOf(selectedItem)
+  if (centerIndex === -1) centerIndex = 0 // Fallback
+
+  // Calculate dynamic buffer to ensure loop continuity during drag
+  // This ensures items keep rendering even if dragged far beyond the initial view
+  const dragBuffer = itemWidth > 0 ? Math.ceil(Math.abs(dragOffset) / itemWidth) : 0
+  const buffer = 3 + dragBuffer 
+  const half = Math.floor((visibleCount - 1) / 2) + buffer
+  const visibleItems = []
+
+  for (let i = -half; i <= half; i++) {
+    // Handle wrapping (circular list)
+    let index = (centerIndex + i) % items.length
+    if (index < 0) index += items.length
+
+    visibleItems.push({
+      item: items[index],
+      offset: i,
+      // Unique key combining value and relative position to ensure proper React reconciliation during slide
+      key: `${items[index]}-${i}` 
+    })
+  }
+
+  return (
+    <div 
+      ref={containerRef} 
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      className="relative w-full flex justify-center items-center overflow-hidden py-8 select-none rounded-xl cursor-grab active:cursor-grabbing touch-none"
+    >
+      {/* Gradient Masks for fading edges */}
+      <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-stone-50 via-stone-50/80 to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-stone-50 via-stone-50/80 to-transparent z-10 pointer-events-none" />
+      
+      {/* Bottom Shadow (Subtle) */}
+      <div className="absolute left-0 right-0 bottom-0 h-4 bg-gradient-to-t from-stone-200/20 to-transparent pointer-events-none z-10" />
+
+      {visibleItems.map(({ item, offset, key }) => {
+        // Calculate dynamic visual state based on drag
+        // The item's center position relative to the viewport center (0)
+        // position = (offset * itemWidth) + dragOffset
+        const position = (offset * itemWidth) + dragOffset
+        
+        // Distance from center in pixels
+        const distance = Math.abs(position)
+        
+        // Normalize distance in items
+        const normalizedDistance = itemWidth > 0 ? distance / itemWidth : 0
+        
+        // Scale: 1.1 at center, drops to 0.8 min
+        const scale = Math.max(1.1 - (normalizedDistance * 0.1), 0.8)
+        
+        // Opacity: 1.0 at center, fades out slowly
+        const opacity = Math.max(1 - (normalizedDistance * 0.15), 0.2)
+        
+        // Font weight visual trick: interpolate roughly
+        const isCenterVisual = normalizedDistance < 0.5
+
+        return (
+          <button
+            key={key}
+            onClick={() => handleItemClick(offset)}
+            className={`
+              absolute flex items-center justify-center transition-transform ease-out
+              ${isCenterVisual
+                ? 'text-4xl font-extrabold text-stone-800 scale-110 z-20 drop-shadow-md' 
+                : 'text-xl font-medium text-stone-400 hover:text-stone-600 scale-90 cursor-pointer drop-shadow-sm'
+              }
+            `}
+            style={{
+              width: `${itemWidth}px`,
+              // We use transform to position items relative to center
+              transform: `translateX(${position}px) scale(${scale})`,
+              opacity: opacity,
+              transition: isAnimating ? 'transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms' : 'none',
+              textShadow: isCenterVisual ? '0 0 30px rgba(168, 162, 158, 0.8)' : undefined
+            }}
+            aria-label={`Select key ${item}`}
+            aria-current={offset === 0 ? 'true' : undefined}
+          >
+            {item}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 const KeySelector = ({
   currentKey,
@@ -347,6 +573,23 @@ export const ChordGrid = () => {
   // Animation key triggers re-render of span animations when key/mode changes
   const animKey = `${currentKey}-${currentMode}`
 
+  // Helper to get the current key in Major representation for the picker (e.g. if key is C# minor, picker needs Db)
+  const currentPickerKey = KEY_OPTIONS.find(k => k.major === currentKey || k.minor === currentKey)?.major || 'C'
+
+  const handlePickerSelect = (key: string) => {
+    // Check if we need to switch to minor equivalent
+    if (currentMode !== 'Major') {
+      const option = KEY_OPTIONS.find(o => o.major === key)
+      if (option) {
+        setCurrentKey(option.minor)
+      } else {
+        setCurrentKey(key)
+      }
+    } else {
+      setCurrentKey(key)
+    }
+  }
+
   const handleChordClick = (colIndex: number) => {
     // 1. Identify new Root (row 6 is the 1st degree/scale root)
     const newRoot = gridData.rows[6][colIndex]
@@ -375,24 +618,32 @@ export const ChordGrid = () => {
       `}</style>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <KeySelector 
-          currentKey={currentKey} 
-          currentMode={currentMode}
-          preferredMinorMode={preferredMinorMode}
-          onSelectKey={(key, mode) => {
-            setCurrentKey(key)
-            setCurrentMode(mode)
-          }}
+      <div className="flex flex-col gap-8 mb-8">
+        <HorizontalPicker 
+          items={PICKER_ITEMS} 
+          selectedItem={currentPickerKey} 
+          onSelectItem={handlePickerSelect} 
         />
         
-        <ModeSelector 
-          preferredMinorMode={preferredMinorMode}
-          onSelectMode={(mode) => {
-            if (currentMode !== 'Major') setCurrentMode(mode)
-            setPreferredMinorMode(mode)
-          }}
-        />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <KeySelector 
+            currentKey={currentKey} 
+            currentMode={currentMode}
+            preferredMinorMode={preferredMinorMode}
+            onSelectKey={(key, mode) => {
+              setCurrentKey(key)
+              setCurrentMode(mode)
+            }}
+          />
+          
+          <ModeSelector 
+            preferredMinorMode={preferredMinorMode}
+            onSelectMode={(mode) => {
+              if (currentMode !== 'Major') setCurrentMode(mode)
+              setPreferredMinorMode(mode)
+            }}
+          />
+        </div>
       </div>
 
       {/* Grid Container */}
