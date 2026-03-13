@@ -278,6 +278,116 @@ const HorizontalPicker = ({
   )
 }
 
+const InfoModal = ({
+  isOpen,
+  onClose
+}: {
+  isOpen: boolean
+  onClose: () => void
+}) => {
+  const [isVisible, setIsVisible] = useState(false)
+  const [shouldRender, setShouldRender] = useState(false)
+
+  if (isOpen && !shouldRender) {
+    setShouldRender(true)
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      // Small timeout to allow render before opacity transition
+      const raf = requestAnimationFrame(() => setIsVisible(true))
+      return () => cancelAnimationFrame(raf)
+    } else {
+      const raf = requestAnimationFrame(() => setIsVisible(false))
+      const timer = setTimeout(() => setShouldRender(false), 300)
+      return () => {
+        cancelAnimationFrame(raf)
+        clearTimeout(timer)
+      }
+    }
+  }, [isOpen])
+
+  if (!shouldRender) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div 
+        className={`absolute inset-0 bg-stone-200/60 backdrop-blur-sm transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={onClose}
+      />
+      <div 
+        className={`relative bg-white rounded-2xl shadow-xl p-8 max-w-md w-full transform transition-all duration-300 ease-out ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}
+      >
+        <h3 className="text-2xl font-serif italic text-stone-800 mb-4">Chord Insight</h3>
+        <p className="text-stone-600 leading-relaxed mb-6">
+          This is a placeholder for detailed chord information. In the future, this space will contain specific harmonic context, voice leading suggestions, and scale relationships for the selected chord.
+        </p>
+        <button 
+          onClick={onClose}
+          className="w-full py-3 bg-stone-800 text-stone-50 rounded-xl font-medium hover:bg-stone-700 transition-colors shadow-sm"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const LongPressButton = ({
+  onClick,
+  onLongPress,
+  children,
+  className,
+  ...props
+}: React.ComponentProps<'button'> & {
+  onLongPress: () => void
+  onClick: () => void
+}) => {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isLongPress = useRef(false)
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    isLongPress.current = false
+    timerRef.current = setTimeout(() => {
+      isLongPress.current = true
+      onLongPress()
+    }, 500)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    if (!isLongPress.current) {
+      onClick()
+    }
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+  
+  const handlePointerLeave = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  return (
+    <button
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
+      // Prevent default context menu on long press
+      onContextMenu={(e) => e.preventDefault()}
+      className={`${className} touch-none select-none`}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}
+
 const KeySelector = ({
   currentKey,
   currentMode,
@@ -450,11 +560,13 @@ const StaticRow = ({
   rowType,
   data,
   onClickChord,
+  onLongPressChord,
   animKey
 }: {
   rowType: 'name' | 'roman' | 'mode'
   data: readonly string[]
   onClickChord: (index: number) => void
+  onLongPressChord: (index: number) => void
   animKey: string
 }) => {
   // Styles based on row type
@@ -476,9 +588,10 @@ const StaticRow = ({
       {data.map((content, colIndex) => {
         const delay = (rowIndex + colIndex) * 35
         return (
-          <button
+          <LongPressButton
             key={`${rowType}-${colIndex}`}
             onClick={() => onClickChord(colIndex)}
+            onLongPress={() => onLongPressChord(colIndex)}
             className={`aspect-square flex items-center justify-center rounded-lg border border-stone-200 bg-white hover:bg-stone-50 active:bg-stone-100 transition-colors shadow-sm text-stone-800 p-1 break-words leading-tight select-none ${fontClass} ${textClass}`}
           >
             <span
@@ -491,7 +604,7 @@ const StaticRow = ({
             >
               {content}
             </span>
-          </button>
+          </LongPressButton>
         )
       })}
     </>
@@ -620,6 +733,7 @@ export const ChordGrid = () => {
   const [preferredMinorMode, setPreferredMinorMode] = useState<ScaleType>('Harmonic Minor')
   const [isNoteGridOpen, setNoteGridOpen] = useState(false)
   const [enabledKeys, setEnabledKeys] = useState<string[]>(ALL_PICKER_ITEMS)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const gridData = generateGridData(currentKey, currentMode)
   
@@ -659,6 +773,10 @@ export const ChordGrid = () => {
         return ALL_PICKER_ITEMS.filter(k => newSet.has(k))
       }
     })
+  }
+
+  const handleLongPress = () => {
+    setIsModalOpen(true)
   }
 
   const handleChordClick = (colIndex: number) => {
@@ -767,9 +885,9 @@ export const ChordGrid = () => {
           
           {/* Static Section (Chord Info & Controls) */}
           <div className="grid grid-cols-8 gap-3">
-            <StaticRow rowType="name" data={gridData.chordNames} onClickChord={handleChordClick} animKey={animKey} />
-            <StaticRow rowType="roman" data={gridData.romanNumerals} onClickChord={handleChordClick} animKey={animKey} />
-            <StaticRow rowType="mode" data={gridData.modes} onClickChord={handleChordClick} animKey={animKey} />
+            <StaticRow rowType="name" data={gridData.chordNames} onClickChord={handleChordClick} onLongPressChord={handleLongPress} animKey={animKey} />
+            <StaticRow rowType="roman" data={gridData.romanNumerals} onClickChord={handleChordClick} onLongPressChord={handleLongPress} animKey={animKey} />
+            <StaticRow rowType="mode" data={gridData.modes} onClickChord={handleChordClick} onLongPressChord={handleLongPress} animKey={animKey} />
             <ControlsRow 
               isOpen={isNoteGridOpen} 
               onToggle={() => setNoteGridOpen(!isNoteGridOpen)} 
@@ -784,6 +902,11 @@ export const ChordGrid = () => {
             animKey={animKey} 
           />
           
+          <InfoModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+          />
+
         </div>
       </div>
     </div>
