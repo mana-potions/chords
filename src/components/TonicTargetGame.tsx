@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { KEY_OPTIONS, generateGridData, type ScaleType, noteToMidi } from '../utils/musicEngine'
 import { PianoKeyboard } from './PianoKeyboard'
 import { useClickOutside } from '../hooks/useClickOutside'
