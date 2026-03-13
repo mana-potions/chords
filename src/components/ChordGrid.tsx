@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { generateGridData, type ScaleType } from '../utils/musicEngine'
 
 // --- Constants & Types ---
@@ -669,14 +669,43 @@ export const ChordGrid = () => {
     const chordName = gridData.chordNames[colIndex]
     const suffix = chordName.slice(newRoot.length)
     const isMinor = suffix.startsWith('m') || suffix.startsWith('dim')
+    const modeString = isMinor ? 'Minor' : 'Major'
 
-    // 3. Update State
-    setCurrentKey(newRoot)
+    // 3. Normalize Root to match available keys if possible
+    let canonicalRoot = newRoot
+    const pickerString = `${newRoot} ${modeString}`
+    
+    // Simple enharmonic map to ensure we switch to the key supported by the picker/selector
+    const enharmonics: Record<string, string> = {
+      'C#': 'Db', 'Db': 'C#',
+      'D#': 'Eb', 'Eb': 'D#',
+      'F#': 'Gb', 'Gb': 'F#',
+      'G#': 'Ab', 'Ab': 'G#',
+      'A#': 'Bb', 'Bb': 'A#'
+    }
+
+    if (!ALL_PICKER_ITEMS.includes(pickerString)) {
+      const alt = enharmonics[newRoot]
+      if (alt && ALL_PICKER_ITEMS.includes(`${alt} ${modeString}`)) {
+        canonicalRoot = alt
+      }
+    }
+
+    // 4. Update State
+    setCurrentKey(canonicalRoot)
     if (isMinor) {
       setCurrentMode(preferredMinorMode)
     } else {
       setCurrentMode('Major')
     }
+
+    // 5. Ensure the selected key is enabled in the picker
+    const newItem = `${canonicalRoot} ${modeString}`
+    setEnabledKeys(prev => {
+      if (prev.includes(newItem)) return prev
+      const newSet = new Set([...prev, newItem])
+      return ALL_PICKER_ITEMS.filter(k => newSet.has(k))
+    })
   }
 
   return (
