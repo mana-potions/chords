@@ -63,3 +63,89 @@ export const generateGridData = (root: string, scaleType: ScaleType = 'Major') =
     modes: modes
   };
 };
+
+export const noteToMidi: { [key: string]: number } = {
+    'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11,
+    'Cb': 11, 'B#': 0, 'Fb': 4, 'E#': 5
+};
+
+export function midiToNoteName(midi: number): string {
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const note = notes[midi % 12];
+    return `${note}${octave}`;
+}
+
+export function getChordInversions(rootNote: string, chordNotes: string[]): string[][] {
+    const rootMidiBase = noteToMidi[rootNote]; 
+    if (rootMidiBase === undefined) return [];
+    
+    const rootPositionMidi: number[] = [];
+
+    chordNotes.forEach((noteName, i) => {
+        const m = noteToMidi[noteName];
+        if (m === undefined) return; 
+
+        if (i === 0) {
+            rootPositionMidi.push(60 + m); 
+        } else {
+            const rootOctaveBase = Math.floor(rootPositionMidi[0] / 12) * 12;
+            let current = rootOctaveBase + m;
+            while (current <= rootPositionMidi[i-1]) {
+                current += 12;
+            }
+            rootPositionMidi.push(current);
+        }
+    });
+
+    const inversions: string[][] = [];
+    
+    for (let inv = 0; inv < 4; inv++) {
+        let currentMidi = [...rootPositionMidi];
+        
+        for (let j = 0; j < inv; j++) {
+            currentMidi[j] += 12;
+        }
+        
+        currentMidi.sort((a, b) => a - b);
+
+        const maxNote = currentMidi[currentMidi.length - 1];
+        if (maxNote > 84) {
+            currentMidi = currentMidi.map(n => n - 12);
+        }
+
+        inversions.push(currentMidi.map(m => midiToNoteName(m)));
+    }
+
+    return inversions;
+}
+
+export const MINOR_MODES: ScaleType[] = ['Harmonic Minor', 'Melodic Minor', 'Natural Minor'];
+
+export const KEY_OPTIONS = [
+  { major: 'C', minor: 'C' },
+  { major: 'Db', minor: 'C#' },
+  { major: 'D', minor: 'D' },
+  { major: 'Eb', minor: 'Eb' },
+  { major: 'E', minor: 'E' },
+  { major: 'F', minor: 'F' },
+  { major: 'Gb', minor: 'F#' },
+  { major: 'G', minor: 'G' },
+  { major: 'Ab', minor: 'G#' },
+  { major: 'A', minor: 'A' },
+  { major: 'Bb', minor: 'Bb' },
+  { major: 'B', minor: 'B' },
+];
+
+export const ALL_PICKER_ITEMS = KEY_OPTIONS.flatMap(k => [
+  `${k.major} Major`,
+  `${k.minor} Minor`
+]);
+
+export const ENHARMONICS: Record<string, string> = {
+  'C#': 'Db', 'Db': 'C#',
+  'D#': 'Eb', 'Eb': 'D#',
+  'F#': 'Gb', 'Gb': 'F#',
+  'G#': 'Ab', 'Ab': 'G#',
+  'A#': 'Bb', 'Bb': 'A#'
+};
