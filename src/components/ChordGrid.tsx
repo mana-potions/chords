@@ -25,6 +25,148 @@ const ALL_PICKER_ITEMS = KEY_OPTIONS.flatMap(k => [
   `${k.minor} Minor`
 ])
 
+// --- Music Theory Helpers ---
+
+const noteToMidi: { [key: string]: number } = {
+    'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11,
+    'Cb': 11, 'B#': 0, 'Fb': 4, 'E#': 5
+};
+
+function midiToNoteName(midi: number): string {
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const note = notes[midi % 12];
+    return `${note}${octave}`;
+}
+
+function getChordInversions(rootNote: string, chordNotes: string[]): string[][] {
+    const rootMidiBase = noteToMidi[rootNote]; 
+    if (rootMidiBase === undefined) return [];
+
+    // 1. Construct MIDI numbers for the root position chord
+    // We'll anchor the root at C4 (60) or nearby to keep it centered
+    // Actually, let's just use midi values starting around 60 (C4)
+    const baseMidi = 60 + rootMidiBase; // This might put B at 71 (B4), C at 60 (C4)
+    
+    // We need to map the chordNotes (which are just names) to MIDI numbers
+    // ensuring they stack upwards from the root.
+    const rootPositionMidi: number[] = [];
+    let lastMidi = -1;
+
+    // Re-order chordNotes so the first one is the rootNote (it should be coming from getDiatonicChordTones already sorted by interval)
+    // getDiatonicChordTones returns [Root, 3rd, 5th, 7th].
+
+    chordNotes.forEach((noteName, i) => {
+        const m = noteToMidi[noteName];
+        // Find the lowest midi for this note that is >= lastMidi
+        // If i === 0, we can anchor to C4 range (48-59 + offset)
+        // Let's explicitly place the root in octave 4 (midi 60-71)
+        if (i === 0) {
+            rootPositionMidi.push(60 + m); // e.g. C4=60, B4=71
+        } else {
+            let current = (Math.floor(rootPositionMidi[0] / 12) * 12) + m; 
+            // Ensure it is strictly above the previous note? 
+            // Usually chords are stacked thirds.
+            // We just need to find the specific octave that makes it sit right above previous
+            while (current <= rootPositionMidi[i-1]) {
+                current += 12;
+            }
+            rootPositionMidi.push(current);
+        }
+    });
+
+    const inversions: string[][] = [];
+    
+    // Generate 4 inversions (Root, 1st, 2nd, 3rd)
+    for (let inv = 0; inv < 4; inv++) {
+        let currentMidi = [...rootPositionMidi];
+        
+        // For inversions 1, 2, 3: shift lower notes up an octave
+        // 1st inv: shift index 0 up 12
+        // 2nd inv: shift index 0,1 up 12
+        // etc.
+        for (let j = 0; j < inv; j++) {
+            currentMidi[j] += 12;
+        }
+        
+        // Sort to get correct order for visual (though piano lights up keys regardless of order)
+        // But for consistency let's sort
+        currentMidi.sort((a, b) => a - b);
+
+        // Normalize to fit in range 60-84 if possible (keep within C4-C6 view)
+        const maxNote = currentMidi[currentMidi.length - 1];
+        if (maxNote > 84) {
+            currentMidi = currentMidi.map(n => n - 12);
+        }
+
+        inversions.push(currentMidi.map(m => midiToNoteName(m)));
+    }
+
+    return inversions;
+}
+
+const PianoKeyboard = ({ 
+  highlightedNotes, 
+  className = "" 
+}: { 
+  highlightedNotes: string[]
+  className?: string 
+}) => {
+  // Fixed range C4 to C6 (2 octaves + 1 note) to accommodate most close voicings
+  // MIDI 60 (C4) to 84 (C6)
+  const startMidi = 60; 
+  const endMidi = 84; 
+  
+  const isHighlighted = (midi: number) => {
+    const noteName = midiToNoteName(midi);
+    return highlightedNotes.includes(noteName);
+  };
+
+  const whiteKeys = [];
+  const blackKeys = [];
+
+  let xPos = 0;
+  const whiteKeyWidth = 24;
+  const blackKeyWidth = 14;
+
+  for (let m = startMidi; m <= endMidi; m++) {
+    const isBlack = [1, 3, 6, 8, 10].includes(m % 12);
+    if (!isBlack) {
+      whiteKeys.push({ midi: m, x: xPos });
+      xPos += whiteKeyWidth;
+    }
+  }
+
+  // Second pass for black keys to overlay them correctly
+  // A black key at midi M is usually between M-1 (white) and M+1 (white)
+  // We anchor them relative to the white keys.
+  // C# (1) is between C (0) and D (2).
+  for (let m = startMidi; m <= endMidi; m++) {
+    const isBlack = [1, 3, 6, 8, 10].includes(m % 12);
+    if (isBlack) {
+        // Find the white key before it
+        const prevWhite = whiteKeys.find(wk => wk.midi === m - 1);
+        if (prevWhite) {
+            blackKeys.push({ midi: m, x: prevWhite.x + (whiteKeyWidth - blackKeyWidth / 2) });
+        }
+    }
+  }
+
+  const totalWidth = xPos;
+  const height = 80;
+
+  return (
+    <svg viewBox={`0 0 ${totalWidth} ${height}`} className={`w-full h-auto ${className}`}>
+      {whiteKeys.map(k => (
+        <rect key={k.midi} x={k.x} y={0} width={whiteKeyWidth} height={height} stroke="#e5e7eb" strokeWidth="1" fill={isHighlighted(k.midi) ? '#facc15' : 'white'} className="transition-colors duration-300" rx={3} ry={3} />
+      ))}
+      {blackKeys.map(k => (
+        <rect key={k.midi} x={k.x} y={0} width={blackKeyWidth} height={height * 0.6} stroke="#e5e7eb" strokeWidth="1" fill={isHighlighted(k.midi) ? '#facc15' : '#374151'} className="transition-colors duration-300" rx={2} ry={2} />
+      ))}
+    </svg>
+  )
+}
+
 // --- Hooks ---
 
 const useClickOutside = (ref: React.RefObject<HTMLElement | null>, callback: () => void, isActive: boolean) => {
@@ -280,16 +422,23 @@ const HorizontalPicker = ({
 
 const InfoModal = ({
   isOpen,
-  onClose
+  onClose,
+  chordData
 }: {
   isOpen: boolean
   onClose: () => void
+  chordData: { name: string; notes: string[]; inversions: string[][] } | null
 }) => {
   const [isVisible, setIsVisible] = useState(false)
   const [shouldRender, setShouldRender] = useState(false)
+  const [displayData, setDisplayData] = useState(chordData)
 
   if (isOpen && !shouldRender) {
     setShouldRender(true)
+  }
+
+  if (chordData && chordData !== displayData) {
+    setDisplayData(chordData)
   }
 
   useEffect(() => {
@@ -307,7 +456,7 @@ const InfoModal = ({
     }
   }, [isOpen])
 
-  if (!shouldRender) return null
+  if (!shouldRender || !displayData) return null
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -316,12 +465,35 @@ const InfoModal = ({
         onClick={onClose}
       />
       <div 
-        className={`relative bg-white rounded-2xl shadow-xl p-8 max-w-md w-full transform transition-all duration-300 ease-out ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}
+        className={`relative bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl transform transition-all duration-300 ease-out flex flex-col max-h-[90vh] overflow-y-auto ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}
       >
-        <h3 className="text-2xl font-serif italic text-stone-800 mb-4">Chord Insight</h3>
-        <p className="text-stone-600 leading-relaxed mb-6">
-          This is a placeholder for detailed chord information. In the future, this space will contain specific harmonic context, voice leading suggestions, and scale relationships for the selected chord.
-        </p>
+        <h3 className="text-3xl font-serif italic text-stone-800 mb-6 text-center">{displayData.name}</h3>
+        
+        <div className="flex justify-around my-8">
+          {displayData.notes.map((note, index) => (
+            <div key={note + index} className="text-center">
+              <span className="text-5xl font-bold text-stone-800">{note}</span>
+              <span className="block text-sm text-stone-500 mt-1 font-serif italic">
+                {[1, 3, 5, 7][index]}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 mb-8">
+            {['Root Position', '1st Inversion', '2nd Inversion', '3rd Inversion'].map((label, i) => (
+                <div key={label} className="flex flex-col items-center">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">{label}</h4>
+                    <div className="w-full bg-stone-50 rounded-lg p-2 shadow-inner">
+                        <PianoKeyboard 
+                            highlightedNotes={displayData.inversions[i]} 
+                            className="w-full"
+                        />
+                    </div>
+                </div>
+            ))}
+        </div>
+
         <button 
           onClick={onClose}
           className="w-full py-3 bg-stone-800 text-stone-50 rounded-xl font-medium hover:bg-stone-700 transition-colors shadow-sm"
@@ -733,7 +905,7 @@ export const ChordGrid = () => {
   const [preferredMinorMode, setPreferredMinorMode] = useState<ScaleType>('Harmonic Minor')
   const [isNoteGridOpen, setNoteGridOpen] = useState(false)
   const [enabledKeys, setEnabledKeys] = useState<string[]>(ALL_PICKER_ITEMS)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalData, setModalData] = useState<{ name: string; notes: string[]; inversions: string[][] } | null>(null)
 
   const gridData = generateGridData(currentKey, currentMode)
   
@@ -775,8 +947,19 @@ export const ChordGrid = () => {
     })
   }
 
-  const handleLongPress = () => {
-    setIsModalOpen(true)
+  const handleLongPress = (index: number) => {
+    const chordName = gridData.chordNames[index];
+    
+    // Extract 1, 3, 5, 7 from the grid rows (Scale degrees 1, 3, 5, 7)
+    // Rows are stored 7th..1st, so indices correspond to degree: 6=1st, 4=3rd, 2=5th, 0=7th
+    const root = gridData.rows[6][index]
+    const third = gridData.rows[4][index]
+    const fifth = gridData.rows[2][index]
+    const seventh = gridData.rows[0][index]
+
+    const notes = [root, third, fifth, seventh]
+    const inversions = getChordInversions(root, notes);
+    setModalData({ name: chordName, notes, inversions });
   }
 
   const handleChordClick = (colIndex: number) => {
@@ -903,8 +1086,9 @@ export const ChordGrid = () => {
           />
           
           <InfoModal 
-            isOpen={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
+            isOpen={modalData !== null} 
+            onClose={() => setModalData(null)}
+            chordData={modalData}
           />
 
         </div>
