@@ -1,13 +1,20 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { midiToNoteName } from '../utils/musicEngine'
 
 export const PianoKeyboard = ({ 
   highlightedNotes, 
-  className = "" 
+  incorrectNotes = [],
+  className = "",
+  interactive = false,
+  onPlayNote
 }: { 
   highlightedNotes: string[]
+  incorrectNotes?: string[]
   className?: string 
+  interactive?: boolean
+  onPlayNote?: (note: string) => void
 }) => {
+  const [activeKeys, setActiveKeys] = useState<number[]>([])
   // Fixed range C4 to C6 (2 octaves + 1 note) to accommodate most close voicings
   // MIDI 60 (C4) to 84 (C6)
   const startMidi = 60; 
@@ -15,8 +22,25 @@ export const PianoKeyboard = ({
   
   const isHighlighted = (midi: number) => {
     const noteName = midiToNoteName(midi);
-    return highlightedNotes.includes(noteName);
+    return highlightedNotes.includes(noteName) || activeKeys.includes(midi);
   };
+
+  const isIncorrect = (midi: number) => {
+    const noteName = midiToNoteName(midi);
+    return incorrectNotes.includes(noteName);
+  }
+
+  const handleKeyClick = (midi: number) => {
+    if (!interactive) return
+    
+    const noteName = midiToNoteName(midi)
+    if (onPlayNote) onPlayNote(noteName)
+
+    setActiveKeys(prev => [...prev, midi])
+    setTimeout(() => {
+      setActiveKeys(prev => prev.filter(k => k !== midi))
+    }, 300)
+  }
 
   const whiteKeys = [];
   const blackKeys = [];
@@ -48,14 +72,57 @@ export const PianoKeyboard = ({
   const totalWidth = xPos;
   const height = 80;
 
+  const getKeyFill = (midi: number, isBlack: boolean) => {
+    if (isIncorrect(midi)) return '#ef4444'; // Red-500
+    if (isHighlighted(midi)) return '#facc15'; // Yellow-400
+    return isBlack ? '#374151' : 'white';
+  }
+
+  const getAnimationClass = (midi: number) => {
+    const baseClass = 'transition-colors duration-300';
+    return `${baseClass} ${isIncorrect(midi) ? 'animate-pulse-red' : ''}`;
+  }
+
   return (
-    <svg viewBox={`0 0 ${totalWidth} ${height}`} className={`w-full h-auto ${className}`}>
-      {whiteKeys.map(k => (
-        <rect key={k.midi} x={k.x} y={0} width={whiteKeyWidth} height={height} stroke="#e5e7eb" strokeWidth="1" fill={isHighlighted(k.midi) ? '#facc15' : 'white'} className="transition-colors duration-300" rx={3} ry={3} />
-      ))}
-      {blackKeys.map(k => (
-        <rect key={k.midi} x={k.x} y={0} width={blackKeyWidth} height={height * 0.6} stroke="#e5e7eb" strokeWidth="1" fill={isHighlighted(k.midi) ? '#facc15' : '#374151'} className="transition-colors duration-300" rx={2} ry={2} />
-      ))}
-    </svg>
+    <>
+      <style>{`
+        @keyframes pulse-red {
+          0%, 100% { fill: #ef4444; } /* Red-500 */
+          50% { fill: #991b1b; }      /* Red-800 - darker pulse instead of transparency */
+        }
+        .animate-pulse-red {
+          animation: pulse-red 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+      `}</style>
+      <svg viewBox={`0 0 ${totalWidth} ${height}`} className={`w-full h-auto ${className}`}>
+        {whiteKeys.map(k => (
+          <rect 
+            key={k.midi} 
+            x={k.x} 
+            y={0} 
+            width={whiteKeyWidth} 
+            height={height} 
+            stroke="#e5e7eb" 
+            strokeWidth="1" 
+            fill={getKeyFill(k.midi, false)}
+            className={`${getAnimationClass(k.midi)} ${interactive ? 'cursor-pointer' : ''}`} 
+            rx={3} ry={3} 
+            onClick={() => handleKeyClick(k.midi)}
+          />
+        ))}
+        {blackKeys.map(k => (
+          <rect 
+            key={k.midi} 
+            x={k.x} y={0} 
+            width={blackKeyWidth} height={height * 0.6} 
+            stroke="#e5e7eb" strokeWidth="1" 
+            fill={getKeyFill(k.midi, true)}
+            className={`${getAnimationClass(k.midi)} ${interactive ? 'cursor-pointer' : ''}`} 
+            rx={2} ry={2} 
+            onClick={() => handleKeyClick(k.midi)}
+          />
+        ))}
+      </svg>
+    </>
   )
 }
