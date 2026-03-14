@@ -118,7 +118,7 @@ export const PianoKeyboard = ({
   }
 
   const totalWidth = xPos;
-  const height = 80;
+  const height = 100;
 
   const getKeyFill = (midi: number, isBlack: boolean) => {
     if (isIncorrect(midi)) return '#ef4444'; // Red-500

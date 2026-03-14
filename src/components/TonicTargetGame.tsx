@@ -103,16 +103,16 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
 }) => {
   return (
     <div 
-      className={`flex-grow flex flex-col items-center justify-center p-4 md:p-6 w-full max-w-4xl mx-auto ${
+      className={`flex-grow flex flex-col items-center justify-center px-4 md:px-6 w-full max-w-4xl mx-auto min-h-[250px] sm:min-h-[300px] ${
         isExiting 
           ? 'animate-slide-out-left' 
           : (isInitialLoad ? '' : 'animate-slide-in-right')
       }`}
     >
       {/* Passing Chords */}
-      <div className="mb-8 md:mb-16 text-center w-full">
-        <h2 className="text-xs md:text-sm font-bold uppercase tracking-widest text-stone-400 mb-4 md:mb-6">Passing Chords</h2>
-        <div className="flex justify-center items-end gap-12 sm:gap-16 md:gap-24">
+      <div className="mb-[clamp(1rem,4vh,3rem)] text-center w-full mt-auto">
+        <h2 className="text-[clamp(0.75rem,2vh,0.875rem)] font-bold uppercase tracking-widest text-stone-400 mb-[clamp(0.5rem,1.5vh,1rem)]">Passing Chords</h2>
+        <div className="flex justify-center items-end gap-[clamp(2rem,8vw,6rem)]">
           {gameSteps.map((step, index) => (
             <button
               key={index}
@@ -124,7 +124,7 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
                   : 'opacity-30 text-stone-600 cursor-default'
               } ${bouncingStep === index ? 'animate-pop' : ''}`}
             >
-              <h3 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tighter">
+              <h3 className="text-[clamp(2.5rem,8vmin,4.5rem)] font-bold tracking-tighter leading-none">
                 {step.label}
               </h3>
             </button>
@@ -134,26 +134,26 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
 
       {/* Tonic Chord (The 'I') */}
       {currentChord && (
-        <div className="text-center">
+        <div className="text-center flex flex-col items-center mb-auto pb-[clamp(1rem,4vh,2rem)]">
           <button 
             onClick={onPlayTonic}
-            className="block mx-auto animate-in fade-in zoom-in duration-700 mb-6 md:mb-8 focus:outline-none hover:scale-105 transition-transform cursor-pointer"
+            className="block mx-auto animate-in fade-in zoom-in duration-700 mb-[clamp(1rem,3vh,2rem)] focus:outline-none hover:scale-[1.02] transition-transform cursor-pointer"
           >
-            <h1 className="text-7xl sm:text-8xl md:text-9xl font-bold text-stone-800 tracking-tighter drop-shadow-sm">{currentChord.root}</h1>
-            <p className="text-3xl sm:text-4xl md:text-5xl font-serif italic text-stone-500 mt-2 md:mt-4">{currentChord.type}</p>
+            <h1 className="text-[clamp(4rem,14vmin,9rem)] font-bold text-stone-800 tracking-tighter drop-shadow-sm leading-none">{currentChord.root}</h1>
+            <p className="text-[clamp(1.5rem,5vmin,3rem)] font-serif italic text-stone-500 mt-[clamp(0.5rem,1.5vh,1rem)] leading-none">{currentChord.type}</p>
           </button>
           
           <button
             onClick={onNextRound}
             aria-label="Next Round"
-            className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ease-in-out
+            className={`w-[clamp(3rem,8vmin,4rem)] h-[clamp(3rem,8vmin,4rem)] shrink-0 rounded-full flex items-center justify-center transition-all duration-300 ease-in-out
               ${isRoundComplete
                 ? 'bg-yellow-400 text-white animate-pop shadow-lg'
                 : 'bg-stone-200 text-stone-400 hover:bg-stone-300 hover:text-stone-500'
               }
             `}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 md:w-8 md:h-8">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-[clamp(1.5rem,4vmin,2rem)] h-[clamp(1.5rem,4vmin,2rem)]">
               <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06l6.22-6.22H3a.75.75 0 010-1.5h14.69l-6.22-6.22a.75.75 0 010-1.06z" clipRule="evenodd" />
             </svg>
           </button>
@@ -182,10 +182,10 @@ export const TonicTargetGame = () => {
   const [playedNotesHistory, setPlayedNotesHistory] = useState<Record<number, string[]>>({});
   const [playbackKeys, setPlaybackKeys] = useState<string[]>([]);
   
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 850 : false);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    const handleResize = () => setIsMobile(window.innerWidth < 850);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -403,7 +403,7 @@ export const TonicTargetGame = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-stone-50 overflow-hidden">
+    <div className="flex flex-col min-h-screen supports-[min-height:100dvh]:min-h-[100dvh] bg-stone-50 overflow-y-auto overflow-x-hidden">
       <style>{`
         @keyframes pop {
           0% { transform: scale(1); }
@@ -423,7 +423,7 @@ export const TonicTargetGame = () => {
         .animate-slide-out-left { animation: slideOutLeft 0.4s ease-in forwards; }
       `}</style>
       {/* Top Controls */}
-      <div className="w-full p-4 md:p-6 flex justify-between md:grid md:grid-cols-3 gap-2 md:gap-4 items-center relative z-20">
+      <div className="w-full p-4 md:p-6 flex justify-between md:grid md:grid-cols-3 gap-2 md:gap-4 items-center relative z-20 shrink-0">
         <div className="hidden md:block"></div>
         <div className="flex justify-start md:justify-center">
           <ProgressionSelector value={progression} onChange={setProgression} />
@@ -448,11 +448,11 @@ export const TonicTargetGame = () => {
       />
 
       {/* Bottom: Piano Keyboard */}
-      <div className="w-full mt-auto">
+      <div className="w-full mt-auto shrink-0">
         <PianoKeyboard 
           highlightedNotes={Array.from(new Set([...highlightedKeys, ...playbackKeys]))} 
           incorrectNotes={errorKeys}
-          className="w-full h-auto block"
+          className="w-full max-h-[40vh] md:max-h-[45vh] lg:max-h-[50vh] block mx-auto"
           interactive={true}
           startMidi={48}
         endMidi={isMobile ? 60 : 72}
