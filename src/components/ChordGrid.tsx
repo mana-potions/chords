@@ -170,7 +170,7 @@ const HorizontalPicker = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      className="relative w-full flex justify-center items-center py-8 select-none rounded-xl cursor-grab active:cursor-grabbing touch-none"
+      className="relative w-full overflow-hidden flex justify-center items-center py-8 select-none rounded-xl cursor-grab active:cursor-grabbing touch-none"
     >
       {/* Gradient Masks for fading edges */}
       <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-stone-50 via-stone-50/80 to-transparent z-10 pointer-events-none" />
@@ -339,14 +339,31 @@ const LongPressButton = ({
 }) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLongPress = useRef(false)
+  const isDragging = useRef(false)
+  const startPos = useRef<{ x: number; y: number } | null>(null)
 
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     isLongPress.current = false
+    isDragging.current = false
+    startPos.current = { x: e.clientX, y: e.clientY }
     timerRef.current = setTimeout(() => {
       isLongPress.current = true
       onLongPress()
     }, 500)
-    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (startPos.current) {
+      const dx = e.clientX - startPos.current.x
+      const dy = e.clientY - startPos.current.y
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        isDragging.current = true
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+          timerRef.current = null
+        }
+      }
+    }
   }
 
   const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -354,10 +371,10 @@ const LongPressButton = ({
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
-    if (!isLongPress.current) {
+    if (!isLongPress.current && !isDragging.current && startPos.current) {
       onClick()
     }
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    startPos.current = null
   }
   
   const handlePointerLeave = () => {
@@ -365,16 +382,27 @@ const LongPressButton = ({
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
+    startPos.current = null
+  }
+
+  const handlePointerCancel = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    startPos.current = null
   }
 
   return (
     <button
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerLeave}
+      onPointerCancel={handlePointerCancel}
       // Prevent default context menu on long press
       onContextMenu={(e) => e.preventDefault()}
-      className={`${className} touch-none select-none`}
+      className={`${className} select-none`}
       {...props}
     >
       {children}
@@ -866,7 +894,7 @@ export const ChordGrid = () => {
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-6">
+    <div className="w-full max-w-3xl mx-auto py-6">
       <style>{`
         @keyframes rippleFadeIn {
           0% { opacity: 0; transform: scale(0.9); }
@@ -889,7 +917,7 @@ export const ChordGrid = () => {
           onSelectItem={handlePickerSelect} 
         />
         
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6">
           <KeySelector 
             currentKey={currentKey} 
             currentMode={currentMode}
@@ -926,8 +954,8 @@ export const ChordGrid = () => {
       </div>
 
       {/* Grid Container */}
-      <div className="overflow-x-auto pb-4">
-        <div className="min-w-[624px]">
+      <div className="overflow-x-auto overscroll-x-none pb-4">
+        <div className="min-w-[624px] px-6">
           
           {/* Static Section (Chord Info & Controls) */}
           <div className="grid grid-cols-8 gap-3 px-1">

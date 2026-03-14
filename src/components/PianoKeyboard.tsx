@@ -155,7 +155,7 @@ export const PianoKeyboard = ({
             fill={getKeyFill(k.midi, false)}
             className={`${getAnimationClass(k.midi)} ${interactive ? 'cursor-pointer' : ''}`} 
             rx={3} ry={3} 
-            onClick={() => handleKeyClick(k.midi)}
+            onPointerDown={() => handleKeyClick(k.midi)}
           />
         ))}
         {blackKeys.map(k => (
@@ -167,7 +167,7 @@ export const PianoKeyboard = ({
             fill={getKeyFill(k.midi, true)}
             className={`${getAnimationClass(k.midi)} ${interactive ? 'cursor-pointer' : ''}`} 
             rx={2} ry={2} 
-            onClick={() => handleKeyClick(k.midi)}
+            onPointerDown={() => handleKeyClick(k.midi)}
           />
         ))}
       </svg>

@@ -29,10 +29,31 @@ export const useAudioEngine = () => {
       }
     }).chain(reverb, limiter, Tone.Destination);
 
+    // Crucial for iOS: Unlock the Web Audio context on the first user interaction.
+    // iOS requires AudioContext to be resumed synchronously during a user gesture.
+    const unlockAudio = async () => {
+      if (Tone.getContext().state !== 'running') {
+        await Tone.start();
+      }
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+
     return () => {
       sampler.current?.dispose();
       reverb.dispose();
       limiter.dispose();
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
     };
   }, []);
 
