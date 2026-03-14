@@ -3,6 +3,7 @@ import { KEY_OPTIONS, generateGridData, type ScaleType, noteToMidi, getChordInve
 import { PianoKeyboard } from './PianoKeyboard'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useAudioEngine } from '../hooks/useAudioEngine'
+import { resolveMidi, extractChordNotes, getAverageMidi, shiftOctavesDown } from '../utils/chordHelpers'
 
 interface GameStep {
   name: string;
@@ -10,20 +11,6 @@ interface GameStep {
   chordName: string;
   isCompleted: boolean;
 }
-
-const resolveMidi = (note: string): number | undefined => {
-  if (noteToMidi[note] !== undefined) return noteToMidi[note]
-  // Handle double sharps commonly found in Harmonic Minor keys (e.g. G# minor -> F##)
-  const doubleSharps: Record<string, number> = {
-    'F##': 7, 'Fx': 7,
-    'C##': 2, 'Cx': 2,
-    'G##': 9, 'Gx': 9,
-    'D##': 4, 'Dx': 4,
-    'A##': 11, 'Ax': 11
-  }
-  return doubleSharps[note]
-}
-
 const ProgressionSelector = ({
   value,
   onChange
@@ -274,12 +261,7 @@ export const TonicTargetGame = () => {
     if (stepName === 'ii') degreeIndex = 1;
     else if (stepName === 'V') degreeIndex = 4;
 
-    const root = gridData.rows[6][degreeIndex];
-    const third = gridData.rows[4][degreeIndex];
-    const fifth = gridData.rows[2][degreeIndex];
-    const seventh = gridData.rows[0][degreeIndex];
-
-    const newTargetNotes = [root, third, fifth, seventh].filter(Boolean);
+    const newTargetNotes = extractChordNotes(gridData, degreeIndex);
     console.log(`Target for ${stepName} in ${chordState.root} ${scaleType}:`, newTargetNotes);
     return newTargetNotes;
   }, [activeStepIndex, chordState, gameSteps, minorMode]);
@@ -353,13 +335,8 @@ export const TonicTargetGame = () => {
     const scaleType = chordState.type === 'Major' ? 'Major' : minorMode as ScaleType;
     const gridData = generateGridData(chordState.root, scaleType);
     
-    const root = gridData.rows[6][0];
-    const third = gridData.rows[4][0];
-    const fifth = gridData.rows[2][0];
-    const seventh = gridData.rows[0][0];
-
-    const notes = [root, third, fifth, seventh].filter(Boolean);
-    const inversions = getChordInversions(root, notes);
+    const notes = extractChordNotes(gridData, 0);
+    const inversions = shiftOctavesDown(getChordInversions(notes[0], notes));
     
     if (inversions.length > 0) {
       let inversionToPlay = inversions[0];
@@ -369,17 +346,6 @@ export const TonicTargetGame = () => {
         const finalStepNotes = playedNotesHistory[gameSteps.length - 1];
         
         if (finalStepNotes && finalStepNotes.length > 0) {
-          const getAverageMidi = (notesArr: string[]) => {
-            const sum = notesArr.reduce((acc, noteStr) => {
-              const pitchClass = noteStr.replace(/[0-9-]/g, '');
-              const octaveMatch = noteStr.match(/-?\d+/);
-              const octave = octaveMatch ? parseInt(octaveMatch[0], 10) : 4;
-              const midiBase = resolveMidi(pitchClass) ?? 0;
-              return acc + (midiBase + (octave + 1) * 12);
-            }, 0);
-            return sum / notesArr.length;
-          };
-
           const targetCenter = getAverageMidi(finalStepNotes);
           
           inversionToPlay = inversions.reduce((closest, current) => Math.abs(getAverageMidi(current) - targetCenter) < Math.abs(getAverageMidi(closest) - targetCenter) ? current : closest);
@@ -392,9 +358,9 @@ export const TonicTargetGame = () => {
   };
 
   const handlePlayNote = async (note: string) => {
-    if (activeStepIndex >= gameSteps.length || isExiting || isRoundComplete) return;
-
     await playSound(note);
+
+    if (activeStepIndex >= gameSteps.length || isExiting || isRoundComplete) return;
 
     const pitchClass = note.replace(/[0-9-]/g, '');
     const playedMidi = noteToMidi[pitchClass];

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { generateGridData, type ScaleType, getChordInversions, MINOR_MODES, KEY_OPTIONS, ALL_PICKER_ITEMS, ENHARMONICS, noteToMidi } from '../utils/musicEngine'
+import { generateGridData, type ScaleType, getChordInversions, MINOR_MODES, KEY_OPTIONS, ALL_PICKER_ITEMS, ENHARMONICS } from '../utils/musicEngine'
 import { PianoKeyboard } from './PianoKeyboard'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useAudioEngine } from '../hooks/useAudioEngine'
+import { resolveMidi, extractChordNotes, shiftOctavesDown } from '../utils/chordHelpers'
 
 // --- Sub-Components ---
 
@@ -653,24 +654,10 @@ const NoteGrid = ({
 }) => {
   const [flashState, setFlashState] = useState<Record<string, number>>({});
 
-  // Helper to reliably parse pitch classes including double sharps
-  const resolveMidi = (note: string): number => {
-    const cleanNote = note.replace(/[0-9-]/g, '');
-    if (noteToMidi[cleanNote] !== undefined) return noteToMidi[cleanNote];
-    const doubleSharps: Record<string, number> = {
-      'F##': 7, 'Fx': 7,
-      'C##': 2, 'Cx': 2,
-      'G##': 9, 'Gx': 9,
-      'D##': 4, 'Dx': 4,
-      'A##': 11, 'Ax': 11
-    };
-    return doubleSharps[cleanNote] ?? 0;
-  };
-
-  const rootMidiBase = resolveMidi(rows[6][0]);
+  const rootMidiBase = resolveMidi(rows[6][0]) ?? 0;
   
   const scaleMidi = rows[6].map(noteStr => {
-    let m = resolveMidi(noteStr);
+    let m = resolveMidi(noteStr) ?? 0;
     while (m < rootMidiBase) m += 12; // Ensure the scale only moves upward from the root
     return m;
   });
@@ -768,11 +755,6 @@ const NoteGrid = ({
   )
 }
 
-// Helper to shift chord inversions down one octave for a warmer sound
-const shiftOctavesDown = (inversions: string[][]) => {
-  return inversions.map(inv => inv.map(n => n.replace(/\d+/, d => String(Number(d) - 1))));
-};
-
 // --- Main Component ---
 
 export const ChordGrid = () => {
@@ -827,14 +809,8 @@ export const ChordGrid = () => {
   const handleLongPress = async (index: number) => {
     const chordName = gridData.chordNames[index];
     
-    // Extract 1, 3, 5, 7 from the grid rows (Scale degrees 1, 3, 5, 7)
-    // Rows are stored 7th..1st, so indices correspond to degree: 6=1st, 4=3rd, 2=5th, 0=7th
-    const root = gridData.rows[6][index]
-    const third = gridData.rows[4][index]
-    const fifth = gridData.rows[2][index]
-    const seventh = gridData.rows[0][index]
-
-    const notes = [root, third, fifth, seventh]
+    const notes = extractChordNotes(gridData, index);
+    const root = notes[0];
     const inversions = shiftOctavesDown(getChordInversions(root, notes));
     
     if (inversions.length > 0) {
@@ -845,8 +821,8 @@ export const ChordGrid = () => {
   }
 
   const handleChordClick = async (colIndex: number) => {
-    // 1. Identify new Root (row 6 is the 1st degree/scale root)
-    const newRoot = gridData.rows[6][colIndex]
+    const notes = extractChordNotes(gridData, colIndex);
+    const newRoot = notes[0];
 
     // 2. Identify Mode (Major/Minor)
     const chordName = gridData.chordNames[colIndex]
@@ -854,10 +830,6 @@ export const ChordGrid = () => {
     const isMinor = suffix.startsWith('m') || suffix.startsWith('dim')
 
     // Play audio for the chord
-    const third = gridData.rows[4][colIndex]
-    const fifth = gridData.rows[2][colIndex]
-    const seventh = gridData.rows[0][colIndex]
-    const notes = [newRoot, third, fifth, seventh]
     const inversions = shiftOctavesDown(getChordInversions(newRoot, notes));
     if (inversions.length > 0) {
       await playSound(inversions[0], '2n');
