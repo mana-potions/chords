@@ -28,7 +28,7 @@ const ProgressionSelector = ({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="group flex items-center gap-3 text-3xl font-bold text-stone-800 hover:text-stone-600 transition-colors focus:outline-none"
+        className="group flex items-center gap-2 md:gap-3 text-2xl md:text-3xl font-bold text-stone-800 hover:text-stone-600 transition-colors focus:outline-none"
       >
         <span>{value}</span>
         <svg
@@ -69,7 +69,7 @@ const MinorModeSelector = ({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full shadow-sm text-sm font-medium text-stone-600 hover:text-stone-900 hover:border-stone-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-stone-100 whitespace-nowrap"
+        className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-white border border-stone-200 rounded-full shadow-sm text-xs md:text-sm font-medium text-stone-600 hover:text-stone-900 hover:border-stone-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-stone-100 whitespace-nowrap"
       >
         <span>{value}</span>
         <svg className={`w-4 h-4 text-stone-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -103,16 +103,16 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
 }) => {
   return (
     <div 
-      className={`flex-grow flex flex-col items-center justify-center p-6 w-full max-w-4xl mx-auto ${
+      className={`flex-grow flex flex-col items-center justify-center p-4 md:p-6 w-full max-w-4xl mx-auto ${
         isExiting 
           ? 'animate-slide-out-left' 
           : (isInitialLoad ? '' : 'animate-slide-in-right')
       }`}
     >
       {/* Passing Chords */}
-      <div className="mb-16 text-center w-full">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-stone-400 mb-6">Passing Chords</h2>
-        <div className="flex justify-center items-end gap-24">
+      <div className="mb-8 md:mb-16 text-center w-full">
+        <h2 className="text-xs md:text-sm font-bold uppercase tracking-widest text-stone-400 mb-4 md:mb-6">Passing Chords</h2>
+        <div className="flex justify-center items-end gap-12 sm:gap-16 md:gap-24">
           {gameSteps.map((step, index) => (
             <button
               key={index}
@@ -124,7 +124,7 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
                   : 'opacity-30 text-stone-600 cursor-default'
               } ${bouncingStep === index ? 'animate-pop' : ''}`}
             >
-              <h3 className="text-7xl font-bold tracking-tighter">
+              <h3 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tighter">
                 {step.label}
               </h3>
             </button>
@@ -137,23 +137,23 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
         <div className="text-center">
           <button 
             onClick={onPlayTonic}
-            className="block mx-auto animate-in fade-in zoom-in duration-700 mb-8 focus:outline-none hover:scale-105 transition-transform cursor-pointer"
+            className="block mx-auto animate-in fade-in zoom-in duration-700 mb-6 md:mb-8 focus:outline-none hover:scale-105 transition-transform cursor-pointer"
           >
-            <h1 className="text-9xl font-bold text-stone-800 tracking-tighter drop-shadow-sm">{currentChord.root}</h1>
-            <p className="text-5xl font-serif italic text-stone-500 mt-4">{currentChord.type}</p>
+            <h1 className="text-7xl sm:text-8xl md:text-9xl font-bold text-stone-800 tracking-tighter drop-shadow-sm">{currentChord.root}</h1>
+            <p className="text-3xl sm:text-4xl md:text-5xl font-serif italic text-stone-500 mt-2 md:mt-4">{currentChord.type}</p>
           </button>
           
           <button
             onClick={onNextRound}
             aria-label="Next Round"
-            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ease-in-out
+            className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ease-in-out
               ${isRoundComplete
                 ? 'bg-yellow-400 text-white animate-pop shadow-lg'
                 : 'bg-stone-200 text-stone-400 hover:bg-stone-300 hover:text-stone-500'
               }
             `}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 md:w-8 md:h-8">
               <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06l6.22-6.22H3a.75.75 0 010-1.5h14.69l-6.22-6.22a.75.75 0 010-1.06z" clipRule="evenodd" />
             </svg>
           </button>
@@ -182,6 +182,15 @@ export const TonicTargetGame = () => {
   const [playedNotesHistory, setPlayedNotesHistory] = useState<Record<number, string[]>>({});
   const [playbackKeys, setPlaybackKeys] = useState<string[]>([]);
   
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const playbackTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useEffect(() => {
@@ -414,12 +423,12 @@ export const TonicTargetGame = () => {
         .animate-slide-out-left { animation: slideOutLeft 0.4s ease-in forwards; }
       `}</style>
       {/* Top Controls */}
-      <div className="w-full p-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-center relative z-20">
+      <div className="w-full p-4 md:p-6 flex justify-between md:grid md:grid-cols-3 gap-2 md:gap-4 items-center relative z-20">
         <div className="hidden md:block"></div>
-        <div className="flex-1 flex justify-center">
+        <div className="flex justify-start md:justify-center">
           <ProgressionSelector value={progression} onChange={setProgression} />
         </div>
-        <div className="flex justify-center md:justify-end">
+        <div className="flex justify-end">
           <MinorModeSelector value={minorMode} onChange={setMinorMode} />
         </div>
       </div>
@@ -446,7 +455,7 @@ export const TonicTargetGame = () => {
           className="w-full h-auto block"
           interactive={true}
           startMidi={48}
-          endMidi={72}
+        endMidi={isMobile ? 60 : 72}
           onPlayNote={handlePlayNote}
         />
       </div>

@@ -1,6 +1,32 @@
 import { useState } from 'react'
 import { midiToNoteName } from '../utils/musicEngine'
 
+const pcMidiMap: Record<string, number> = {
+  'C': 0, 'B#': 0,
+  'C#': 1, 'Db': 1,
+  'D': 2,
+  'D#': 3, 'Eb': 3,
+  'E': 4, 'Fb': 4,
+  'F': 5, 'E#': 5,
+  'F#': 6, 'Gb': 6,
+  'G': 7,
+  'G#': 8, 'Ab': 8,
+  'A': 9,
+  'A#': 10, 'Bb': 10,
+  'B': 11, 'Cb': 11
+};
+
+const getAbsoluteMidi = (noteStr: string) => {
+  if (!noteStr) return -1;
+  const pitchClass = noteStr.replace(/[0-9-]/g, '');
+  const octaveStr = noteStr.replace(/[^0-9-]/g, '');
+  if (!octaveStr) return -1;
+  const octave = parseInt(octaveStr, 10);
+  const pcMidi = pcMidiMap[pitchClass];
+  if (pcMidi === undefined) return -1;
+  return (octave + 1) * 12 + pcMidi;
+};
+
 export const PianoKeyboard = ({ 
   highlightedNotes, 
   incorrectNotes = [],
@@ -20,14 +46,36 @@ export const PianoKeyboard = ({
 }) => {
   const [activeKeys, setActiveKeys] = useState<number[]>([])
   
-  const isHighlighted = (midi: number) => {
+  const checkNoteMatch = (midi: number, notesList: string[]) => {
     const noteName = midiToNoteName(midi);
-    return highlightedNotes.includes(noteName) || activeKeys.includes(midi);
+    if (notesList.includes(noteName)) return true;
+
+    const currentPc = midi % 12;
+
+    // Pitch class fallback for out-of-bounds notes OR flat/sharp enharmonics
+    return notesList.some(hn => {
+      const hnAbsoluteMidi = getAbsoluteMidi(hn);
+      if (hnAbsoluteMidi === -1) return false;
+      
+      if (hnAbsoluteMidi === midi) return true; // Exact match (handles enharmonics on the board)
+
+      const hnPc = hnAbsoluteMidi % 12;
+      if (hnPc === currentPc) {
+        // Highlight if the actual target note is outside the board's currently rendered range
+        if (hnAbsoluteMidi < startMidi || hnAbsoluteMidi > endMidi) {
+            return true;
+        }
+      }
+      return false;
+    });
+  };
+
+  const isHighlighted = (midi: number) => {
+    return checkNoteMatch(midi, highlightedNotes) || activeKeys.includes(midi);
   };
 
   const isIncorrect = (midi: number) => {
-    const noteName = midiToNoteName(midi);
-    return incorrectNotes.includes(noteName);
+    return checkNoteMatch(midi, incorrectNotes);
   }
 
   const handleKeyClick = (midi: number) => {
