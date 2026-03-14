@@ -366,7 +366,7 @@ const LongPressButton = ({
     }
   }
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handlePointerUp = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current)
       timerRef.current = null
