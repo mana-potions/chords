@@ -32,17 +32,26 @@ export const useAudioEngine = () => {
     // Crucial for iOS: Unlock the Web Audio context on the first user interaction.
     // iOS requires AudioContext to be resumed synchronously during a user gesture.
     const unlockAudio = async () => {
-      if (Tone.getContext().state !== 'running') {
+      const context = Tone.getContext();
+      if (context.state !== 'running') {
+        // Synchronously resume raw context to satisfy Safari's strict policy
+        context.resume();
+        // Also run Tone's startup (plays a silent buffer)
         await Tone.start();
       }
-      window.removeEventListener('pointerdown', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
+
+      // Only remove listeners if audio successfully unlocked
+      if (context.state === 'running') {
+        window.removeEventListener('touchstart', unlockAudio);
+        window.removeEventListener('touchend', unlockAudio);
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('keydown', unlockAudio);
+      }
     };
 
-    window.addEventListener('pointerdown', unlockAudio);
+    // Intentionally omit 'pointerdown' as it's often untrusted for audio in Safari
     window.addEventListener('touchstart', unlockAudio);
+    window.addEventListener('touchend', unlockAudio);
     window.addEventListener('click', unlockAudio);
     window.addEventListener('keydown', unlockAudio);
 
@@ -50,8 +59,8 @@ export const useAudioEngine = () => {
       sampler.current?.dispose();
       reverb.dispose();
       limiter.dispose();
-      window.removeEventListener('pointerdown', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('touchend', unlockAudio);
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
     };
@@ -63,6 +72,7 @@ export const useAudioEngine = () => {
     
     // Must be triggered from a user action to start the audio context
     if (Tone.getContext().state !== 'running') {
+      Tone.getContext().resume();
       await Tone.start();
     }
     
