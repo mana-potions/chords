@@ -79,7 +79,6 @@ export const useAudioEngine = () => {
           // iOS Safari bug fix: Only instantiate Sampler and decode audio AFTER context is running
           initSamplerRef.current?.();
 
-          window.removeEventListener('touchstart', unlockAudio, true);
           window.removeEventListener('touchend', unlockAudio, true);
           window.removeEventListener('click', unlockAudio, true);
           window.removeEventListener('keydown', unlockAudio, true);
@@ -89,10 +88,9 @@ export const useAudioEngine = () => {
       }
     };
 
-    // Intentionally omit 'pointerdown' as it's often untrusted for audio in Safari
+    // Omit 'pointerdown' and 'touchstart' as they are often untrusted for audio in Safari (seen as scrolls)
     // Use capture phase (`true`) to intercept the event before React's synthetic 
     // event delegation or any async propagation drops the gesture token!
-    window.addEventListener('touchstart', unlockAudio, true);
     window.addEventListener('touchend', unlockAudio, true);
     window.addEventListener('click', unlockAudio, true);
     window.addEventListener('keydown', unlockAudio, true);
@@ -104,7 +102,6 @@ export const useAudioEngine = () => {
       synth.current = null;
       effects.current?.reverb.dispose();
       effects.current?.limiter.dispose();
-      window.removeEventListener('touchstart', unlockAudio, true);
       window.removeEventListener('touchend', unlockAudio, true);
       window.removeEventListener('click', unlockAudio, true);
       window.removeEventListener('keydown', unlockAudio, true);
@@ -116,7 +113,13 @@ export const useAudioEngine = () => {
     // Run this BEFORE the early return to ensure early taps still unlock audio
     if (Tone.getContext().state !== 'running') {
       try {
-        await Tone.start();
+        // Race the start against a 100ms timeout because on iOS physical devices,
+        // React's synthetic events are often considered "untrusted" and Safari 
+        // will silently drop the AudioContext resumption, hanging the Promise forever!
+        await Promise.race([
+          Tone.start(),
+          new Promise(resolve => setTimeout(resolve, 100))
+        ]);
       } catch (e) {
         console.error("Failed to start Tone context during play:", e);
       }
@@ -143,7 +146,11 @@ export const useAudioEngine = () => {
       // Wait for the sampler to download instead of dropping the note on the first tap
       if (sampler.current && !isLoaded) {
         try {
-          await Tone.loaded();
+          // Add a timeout so it doesn't hang forever if iOS blocks the decode promise
+          await Promise.race([
+            Tone.loaded(),
+            new Promise(resolve => setTimeout(resolve, 2000))
+          ]);
         } catch (e) {
           console.error("Sampler failed to load", e);
           return;

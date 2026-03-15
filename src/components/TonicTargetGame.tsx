@@ -103,16 +103,16 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
 }) => {
   return (
     <div 
-      className={`flex-grow flex flex-col items-center justify-center px-4 md:px-6 w-full max-w-4xl mx-auto min-h-[250px] sm:min-h-[300px] ${
+      className={`flex-grow flex flex-col items-center justify-center px-4 md:px-6 w-full max-w-4xl mx-auto min-h-[150px] sm:min-h-[200px] ${
         isExiting 
           ? 'animate-slide-out-left' 
           : (isInitialLoad ? '' : 'animate-slide-in-right')
       }`}
     >
       {/* Passing Chords */}
-      <div className="mb-[clamp(1rem,4vh,3rem)] text-center w-full mt-auto">
-        <h2 className="text-[clamp(0.75rem,2vh,0.875rem)] font-bold uppercase tracking-widest text-stone-400 mb-[clamp(0.5rem,1.5vh,1rem)]">Passing Chords</h2>
-        <div className="flex justify-center items-end gap-[clamp(2rem,8vw,6rem)]">
+      <div className="mb-[clamp(0.5rem,2vh,2rem)] text-center w-full mt-auto">
+        <h2 className="text-[clamp(0.75rem,2vh,0.875rem)] font-bold uppercase tracking-widest text-stone-400 mb-[clamp(0.25rem,1vh,0.5rem)]">Passing Chords</h2>
+        <div className="flex justify-center items-end gap-[clamp(1.5rem,6vw,4rem)]">
           {gameSteps.map((step, index) => (
             <button
               key={index}
@@ -124,7 +124,7 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
                   : 'opacity-30 text-stone-600 cursor-default'
               } ${bouncingStep === index ? 'animate-pop' : ''}`}
             >
-              <h3 className="text-[clamp(2.5rem,8vmin,4.5rem)] font-bold tracking-tighter leading-none">
+              <h3 className="text-[clamp(2rem,6vmin,4rem)] font-bold tracking-tighter leading-none">
                 {step.label}
               </h3>
             </button>
@@ -134,26 +134,26 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
 
       {/* Tonic Chord (The 'I') */}
       {currentChord && (
-        <div className="text-center flex flex-col items-center mb-auto pb-[clamp(1rem,4vh,2rem)]">
+        <div className="text-center flex flex-col items-center mb-auto pb-[clamp(0.5rem,2vh,1.5rem)]">
           <button 
             onClick={onPlayTonic}
-            className="block mx-auto animate-in fade-in zoom-in duration-700 mb-[clamp(1rem,3vh,2rem)] focus:outline-none hover:scale-[1.02] transition-transform cursor-pointer"
+            className="block mx-auto animate-in fade-in zoom-in duration-700 mb-[clamp(0.5rem,2vh,1.5rem)] focus:outline-none hover:scale-[1.02] transition-transform cursor-pointer"
           >
-            <h1 className="text-[clamp(4rem,14vmin,9rem)] font-bold text-stone-800 tracking-tighter drop-shadow-sm leading-none">{currentChord.root}</h1>
-            <p className="text-[clamp(1.5rem,5vmin,3rem)] font-serif italic text-stone-500 mt-[clamp(0.5rem,1.5vh,1rem)] leading-none">{currentChord.type}</p>
+            <h1 className="text-[clamp(3.5rem,12vmin,8rem)] font-bold text-stone-800 tracking-tighter drop-shadow-sm leading-none">{currentChord.root}</h1>
+            <p className="text-[clamp(1.25rem,4vmin,2.5rem)] font-serif italic text-stone-500 mt-[clamp(0.25rem,1vh,0.5rem)] leading-none">{currentChord.type}</p>
           </button>
           
           <button
             onClick={onNextRound}
             aria-label="Next Round"
-            className={`w-[clamp(3rem,8vmin,4rem)] h-[clamp(3rem,8vmin,4rem)] shrink-0 rounded-full flex items-center justify-center transition-all duration-300 ease-in-out
+            className={`shrink-0 flex items-center justify-center transition-all duration-300 ease-in-out outline-none focus:outline-none focus:ring-0 [-webkit-tap-highlight-color:transparent]
               ${isRoundComplete
-                ? 'bg-yellow-400 text-white animate-pop shadow-lg'
-                : 'bg-stone-200 text-stone-400 hover:bg-stone-300 hover:text-stone-500'
+                ? 'text-yellow-500 hover:text-yellow-400 animate-bounce-right drop-shadow-md cursor-pointer'
+                : 'text-stone-300 hover:text-stone-400'
               }
             `}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-[clamp(1.5rem,4vmin,2rem)] h-[clamp(1.5rem,4vmin,2rem)]">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-[clamp(2rem,5vmin,2.75rem)] h-[clamp(2rem,5vmin,2.75rem)]">
               <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06l6.22-6.22H3a.75.75 0 010-1.5h14.69l-6.22-6.22a.75.75 0 010-1.06z" clipRule="evenodd" />
             </svg>
           </button>
@@ -330,15 +330,15 @@ export const TonicTargetGame = () => {
     }, 300); // Animation duration
   };
 
-  const handleReplayChord = async (stepIndex: number) => {
+  const handleReplayChord = (stepIndex: number) => {
     const notes = playedNotesHistory[stepIndex];
     if (notes && notes.length > 0) {
-      await playSound(notes, '2n');
+      playSound(notes, '2n');
       triggerPlaybackFlash(notes);
     }
   };
 
-  const handlePlayTonic = async () => {
+  const handlePlayTonic = () => {
     if (!chordState) return;
     
     const scaleType = chordState.type === 'Major' ? 'Major' : minorMode as ScaleType;
@@ -361,13 +361,13 @@ export const TonicTargetGame = () => {
         }
       }
 
-      await playSound(inversionToPlay, '2n');
+      playSound(inversionToPlay, '2n');
       triggerPlaybackFlash(inversionToPlay);
     }
   };
 
-  const handlePlayNote = async (note: string) => {
-    await playSound(note);
+  const handlePlayNote = (note: string) => {
+    playSound(note); // Fire and forget so we don't block game logic
 
     if (activeStepIndex >= gameSteps.length || isExiting || isRoundComplete) return;
 
@@ -403,7 +403,7 @@ export const TonicTargetGame = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen supports-[min-height:100dvh]:min-h-[100dvh] bg-stone-50 overflow-y-auto overflow-x-hidden">
+    <div className="flex flex-col h-screen supports-[height:100dvh]:h-[100dvh] bg-stone-50 overflow-hidden">
       <style>{`
         @keyframes pop {
           0% { transform: scale(1); }
@@ -421,14 +421,19 @@ export const TonicTargetGame = () => {
           100% { transform: translateX(-100%); opacity: 0; }
         }
         .animate-slide-out-left { animation: slideOutLeft 0.4s ease-in forwards; }
+          @keyframes bounceRight {
+            0%, 100% { transform: translateX(0); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+            50% { transform: translateX(25%); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+          }
+          .animate-bounce-right { animation: bounceRight 1s infinite; }
       `}</style>
       {/* Top Controls */}
-      <div className="w-full p-4 md:p-6 flex justify-between md:grid md:grid-cols-3 gap-2 md:gap-4 items-start relative z-20 shrink-0">
+      <div className="w-full p-4 md:p-6 flex justify-between md:grid md:grid-cols-3 gap-2 md:gap-4 items-center relative z-20 shrink-0">
         <div className="hidden md:block"></div>
         <div className="flex justify-start md:justify-center">
           <ProgressionSelector value={progression} onChange={setProgression} />
         </div>
-        <div className="flex flex-col items-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 md:gap-4">
           <MinorModeSelector value={minorMode} onChange={setMinorMode} />
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-widest text-stone-400 font-bold hidden sm:inline">Sound</span>
@@ -469,7 +474,7 @@ export const TonicTargetGame = () => {
         <PianoKeyboard 
           highlightedNotes={Array.from(new Set([...highlightedKeys, ...playbackKeys]))} 
           incorrectNotes={errorKeys}
-          className="w-full max-h-[40vh] md:max-h-[45vh] lg:max-h-[50vh] block mx-auto"
+          className="w-full max-h-[35vh] md:max-h-[40vh] lg:max-h-[40vh] block mx-auto"
           interactive={true}
           startMidi={48}
         endMidi={isMobile ? 60 : 72}

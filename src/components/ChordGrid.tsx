@@ -857,7 +857,7 @@ export const ChordGrid = () => {
     })
   }
 
-  const handleLongPress = async (index: number) => {
+  const handleLongPress = (index: number) => {
     const chordName = gridData.chordNames[index];
     
     const notes = extractChordNotes(gridData, index);
@@ -865,13 +865,13 @@ export const ChordGrid = () => {
     const inversions = shiftOctavesDown(getChordInversions(root, notes));
     
     if (inversions.length > 0) {
-      await playSound(inversions[0], '2n');
+      playSound(inversions[0], '2n');
     }
 
     setModalData({ name: chordName, notes, inversions });
   }
 
-  const handleChordClick = async (colIndex: number) => {
+  const handleChordClick = (colIndex: number) => {
     const notes = extractChordNotes(gridData, colIndex);
     const newRoot = notes[0];
 
@@ -883,7 +883,7 @@ export const ChordGrid = () => {
     // Play audio for the chord
     const inversions = shiftOctavesDown(getChordInversions(newRoot, notes));
     if (inversions.length > 0) {
-      await playSound(inversions[0], '2n');
+      playSound(inversions[0], '2n');
     }
     
     const modeString = isMinor ? 'Minor' : 'Major'
