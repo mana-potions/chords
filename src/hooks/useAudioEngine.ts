@@ -9,29 +9,41 @@ export const useAudioEngine = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [instrument, setInstrument] = useState<InstrumentType>('piano');
 
+  // Keep references to effects so we can chain the sampler to them later
+  const effects = useRef<{ reverb: Tone.Reverb, limiter: Tone.Limiter } | null>(null);
+  
+  // Store initialization logic to safely call it after audio context unlocks
+  const initSamplerRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     // Setup effects for a more realistic and controlled sound
-    const reverb = new Tone.Reverb({
-      decay: 2.5,
-      wet: 0.2, // Blend 20% of the reverb with the dry signal
-    });
-    const limiter = new Tone.Limiter(-2); // Prevent clipping when playing full chords
+    effects.current = {
+      reverb: new Tone.Reverb({
+        decay: 2.5,
+        wet: 0.2, // Blend 20% of the reverb with the dry signal
+      }),
+      limiter: new Tone.Limiter(-2) // Prevent clipping when playing full chords
+    };
 
-    sampler.current = new Tone.Sampler({
-      urls: {
-        A1: "A1.mp3",
-        A2: "A2.mp3",
-        C4: "C4.mp3",
-        "D#4": "Ds4.mp3",
-      },
-      // Add a longer release tail to prevent abrupt cutoffs
-      release: 1,
-      // Using a high-quality free CDN for Salamander Piano samples
-      baseUrl: "https://tonejs.github.io/audio/salamander/",
-      onload: () => {
-        setIsLoaded(true);
+    initSamplerRef.current = () => {
+      if (!sampler.current && effects.current) {
+        sampler.current = new Tone.Sampler({
+          urls: {
+            A1: "A1.mp3",
+            A2: "A2.mp3",
+            C4: "C4.mp3",
+            "D#4": "Ds4.mp3",
+          },
+          // Add a longer release tail to prevent abrupt cutoffs
+          release: 1,
+          // Using a high-quality free CDN for Salamander Piano samples
+          baseUrl: "https://tonejs.github.io/audio/salamander/",
+        }).chain(effects.current.reverb, effects.current.limiter, Tone.Destination);
+
+        // Use Tone.loaded() instead of onload config for better iOS reliability
+        Tone.loaded().then(() => setIsLoaded(true));
       }
-    }).chain(reverb, limiter, Tone.Destination);
+    };
 
     synth.current = new Tone.PolySynth(Tone.Synth, {
       oscillator: {
@@ -43,7 +55,7 @@ export const useAudioEngine = () => {
         sustain: 0.3,
         release: 1
       }
-    }).set({ volume: -4 }).chain(reverb, limiter, Tone.Destination);
+    }).set({ volume: -4 }).chain(effects.current.reverb, effects.current.limiter, Tone.Destination);
 
     // Crucial for iOS: Unlock the Web Audio context on the first user interaction.
     // iOS requires AudioContext to be resumed synchronously during a user gesture.
@@ -55,6 +67,9 @@ export const useAudioEngine = () => {
         
         // Only remove listeners if audio successfully unlocked
         if (Tone.getContext().state === 'running') {
+          // iOS Safari bug fix: Only instantiate Sampler and decode audio AFTER context is running
+          initSamplerRef.current?.();
+
           window.removeEventListener('touchstart', unlockAudio, true);
           window.removeEventListener('touchend', unlockAudio, true);
           window.removeEventListener('click', unlockAudio, true);
@@ -75,9 +90,11 @@ export const useAudioEngine = () => {
 
     return () => {
       sampler.current?.dispose();
+      sampler.current = null;
       synth.current?.dispose();
-      reverb.dispose();
-      limiter.dispose();
+      synth.current = null;
+      effects.current?.reverb.dispose();
+      effects.current?.limiter.dispose();
       window.removeEventListener('touchstart', unlockAudio, true);
       window.removeEventListener('touchend', unlockAudio, true);
       window.removeEventListener('click', unlockAudio, true);
@@ -96,6 +113,10 @@ export const useAudioEngine = () => {
       }
     }
     
+    if (Tone.getContext().state === 'running') {
+      initSamplerRef.current?.();
+    }
+
     // Helper to ensure notes have an octave if they don't already
     const formatNote = (note: string) => {
       // If note ends with a number (e.g. C4, Bb3), it has an octave
@@ -109,14 +130,23 @@ export const useAudioEngine = () => {
       ? notes.map(formatNote) 
       : formatNote(notes);
 
-    // Grab exact audio context time for precise scheduling
-    const time = Tone.now();
-
     if (instrument === 'piano') {
-      if (!isLoaded || !sampler.current) return;
+      // Wait for the sampler to download instead of dropping the note on the first tap
+      if (sampler.current && !isLoaded) {
+        try {
+          await Tone.loaded();
+        } catch (e) {
+          console.error("Sampler failed to load", e);
+          return;
+        }
+      }
+      if (!sampler.current) return;
+      
+      const time = Tone.now();
       sampler.current.triggerAttackRelease(formattedNotes, duration, time);
     } else if (instrument === 'synth') {
       if (!synth.current) return;
+      const time = Tone.now();
       // iOS Bug Fix: Hardware touch-bounces can trigger duplicate rapid attacks, 
       // causing voice allocation to leak and oscillators to drone forever.
       // Releasing the specific notes milliseconds before re-striking prevents zombie voices.
