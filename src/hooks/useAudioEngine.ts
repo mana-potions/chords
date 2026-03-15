@@ -32,50 +32,56 @@ export const useAudioEngine = () => {
     // Crucial for iOS: Unlock the Web Audio context on the first user interaction.
     // iOS requires AudioContext to be resumed synchronously during a user gesture.
     const unlockAudio = async () => {
-      const context = Tone.getContext();
-      if (context.state !== 'running') {
-        // Synchronously resume raw context to satisfy Safari's strict policy
-        context.resume();
-        // Also run Tone's startup (plays a silent buffer)
-        await Tone.start();
-      }
-
-      // Only remove listeners if audio successfully unlocked
-      if (context.state === 'running') {
-        window.removeEventListener('touchstart', unlockAudio);
-        window.removeEventListener('touchend', unlockAudio);
-        window.removeEventListener('click', unlockAudio);
-        window.removeEventListener('keydown', unlockAudio);
+      try {
+        if (Tone.getContext().state !== 'running') {
+          await Tone.start();
+        }
+        
+        // Only remove listeners if audio successfully unlocked
+        if (Tone.getContext().state === 'running') {
+          window.removeEventListener('touchstart', unlockAudio, true);
+          window.removeEventListener('touchend', unlockAudio, true);
+          window.removeEventListener('click', unlockAudio, true);
+          window.removeEventListener('keydown', unlockAudio, true);
+        }
+      } catch (e) {
+        console.error("Failed to unlock audio context:", e);
       }
     };
 
     // Intentionally omit 'pointerdown' as it's often untrusted for audio in Safari
-    window.addEventListener('touchstart', unlockAudio);
-    window.addEventListener('touchend', unlockAudio);
-    window.addEventListener('click', unlockAudio);
-    window.addEventListener('keydown', unlockAudio);
+    // Use capture phase (`true`) to intercept the event before React's synthetic 
+    // event delegation or any async propagation drops the gesture token!
+    window.addEventListener('touchstart', unlockAudio, true);
+    window.addEventListener('touchend', unlockAudio, true);
+    window.addEventListener('click', unlockAudio, true);
+    window.addEventListener('keydown', unlockAudio, true);
 
     return () => {
       sampler.current?.dispose();
       reverb.dispose();
       limiter.dispose();
-      window.removeEventListener('touchstart', unlockAudio);
-      window.removeEventListener('touchend', unlockAudio);
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio, true);
+      window.removeEventListener('touchend', unlockAudio, true);
+      window.removeEventListener('click', unlockAudio, true);
+      window.removeEventListener('keydown', unlockAudio, true);
     };
   }, []);
 
   const playSound = async (notes: string | string[], duration: string = '2n') => {
-    // Drop the playback command if the piano samples are still loading
-    if (!isLoaded || !sampler.current) return;
-    
     // Must be triggered from a user action to start the audio context
+    // Run this BEFORE the early return to ensure early taps still unlock audio
     if (Tone.getContext().state !== 'running') {
-      Tone.getContext().resume();
-      await Tone.start();
+      try {
+        await Tone.start();
+      } catch (e) {
+        console.error("Failed to start Tone context during play:", e);
+      }
     }
     
+    // Drop the playback command if the piano samples are still loading
+    if (!isLoaded || !sampler.current) return;
+
     // Helper to ensure notes have an octave if they don't already
     const formatNote = (note: string) => {
       // If note ends with a number (e.g. C4, Bb3), it has an octave
