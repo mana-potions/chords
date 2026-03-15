@@ -213,7 +213,7 @@ export const TonicTargetGame = () => {
     });
   };
 
-  const { playSound } = useAudioEngine();
+  const { playSound, instrument, setInstrument } = useAudioEngine();
 
   const [currentChord] = useState<{ root: string, type: string } | null>(() => {
     // Generate a random chord on mount
@@ -423,13 +423,30 @@ export const TonicTargetGame = () => {
         .animate-slide-out-left { animation: slideOutLeft 0.4s ease-in forwards; }
       `}</style>
       {/* Top Controls */}
-      <div className="w-full p-4 md:p-6 flex justify-between md:grid md:grid-cols-3 gap-2 md:gap-4 items-center relative z-20 shrink-0">
+      <div className="w-full p-4 md:p-6 flex justify-between md:grid md:grid-cols-3 gap-2 md:gap-4 items-start relative z-20 shrink-0">
         <div className="hidden md:block"></div>
         <div className="flex justify-start md:justify-center">
           <ProgressionSelector value={progression} onChange={setProgression} />
         </div>
-        <div className="flex justify-end">
+        <div className="flex flex-col items-end gap-3">
           <MinorModeSelector value={minorMode} onChange={setMinorMode} />
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-stone-400 font-bold hidden sm:inline">Sound</span>
+            <div className="flex bg-stone-200/60 p-0.5 rounded">
+              <button 
+                onClick={() => setInstrument('piano')}
+                className={`text-[9px] uppercase tracking-wider font-bold px-2 py-1 rounded transition-colors ${instrument === 'piano' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+              >
+                Piano
+              </button>
+              <button 
+                onClick={() => setInstrument('synth')}
+                className={`text-[9px] uppercase tracking-wider font-bold px-2 py-1 rounded transition-colors ${instrument === 'synth' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+              >
+                Synth
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
