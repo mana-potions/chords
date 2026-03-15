@@ -109,12 +109,19 @@ export const useAudioEngine = () => {
       ? notes.map(formatNote) 
       : formatNote(notes);
 
+    // Grab exact audio context time for precise scheduling
+    const time = Tone.now();
+
     if (instrument === 'piano') {
       if (!isLoaded || !sampler.current) return;
-      sampler.current.triggerAttackRelease(formattedNotes, duration);
+      sampler.current.triggerAttackRelease(formattedNotes, duration, time);
     } else if (instrument === 'synth') {
       if (!synth.current) return;
-      synth.current.triggerAttackRelease(formattedNotes, duration);
+      // iOS Bug Fix: Hardware touch-bounces can trigger duplicate rapid attacks, 
+      // causing voice allocation to leak and oscillators to drone forever.
+      // Releasing the specific notes milliseconds before re-striking prevents zombie voices.
+      synth.current.triggerRelease(formattedNotes, time);
+      synth.current.triggerAttackRelease(formattedNotes, duration, time + 0.005);
     }
   };
 
