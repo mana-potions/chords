@@ -16,6 +16,15 @@ export const useAudioEngine = () => {
   const initSamplerRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    // Pre-fetch the piano samples into the browser's HTTP cache immediately on mount.
+    // We don't decode them yet (which would fail on iOS while the context is suspended),
+    // but this network-level preload eliminates the download latency on the first tap.
+    const baseUrl = "https://tonejs.github.io/audio/salamander/";
+    const sampleFiles = ["A1.mp3", "A2.mp3", "C4.mp3", "Ds4.mp3"];
+    sampleFiles.forEach(file => {
+      fetch(baseUrl + file, { mode: 'cors' }).catch(() => {}); // Fire and forget
+    });
+
     // Setup effects for a more realistic and controlled sound
     effects.current = {
       reverb: new Tone.Reverb({
