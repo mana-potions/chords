@@ -1,9 +1,13 @@
 import { useRef, useState, useEffect } from 'react';
 import * as Tone from 'tone';
 
+export type InstrumentType = 'piano' | 'synth';
+
 export const useAudioEngine = () => {
   const sampler = useRef<Tone.Sampler | null>(null);
+  const synth = useRef<Tone.PolySynth | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [instrument, setInstrument] = useState<InstrumentType>('piano');
 
   useEffect(() => {
     // Setup effects for a more realistic and controlled sound
@@ -28,6 +32,18 @@ export const useAudioEngine = () => {
         setIsLoaded(true);
       }
     }).chain(reverb, limiter, Tone.Destination);
+
+    synth.current = new Tone.PolySynth(Tone.Synth, {
+      oscillator: {
+        type: "triangle" // Gentle sound that doesn't pierce
+      },
+      envelope: {
+        attack: 0.02,
+        decay: 0.1,
+        sustain: 0.3,
+        release: 1
+      }
+    }).set({ volume: -4 }).chain(reverb, limiter, Tone.Destination);
 
     // Crucial for iOS: Unlock the Web Audio context on the first user interaction.
     // iOS requires AudioContext to be resumed synchronously during a user gesture.
@@ -59,6 +75,7 @@ export const useAudioEngine = () => {
 
     return () => {
       sampler.current?.dispose();
+      synth.current?.dispose();
       reverb.dispose();
       limiter.dispose();
       window.removeEventListener('touchstart', unlockAudio, true);
@@ -79,9 +96,6 @@ export const useAudioEngine = () => {
       }
     }
     
-    // Drop the playback command if the piano samples are still loading
-    if (!isLoaded || !sampler.current) return;
-
     // Helper to ensure notes have an octave if they don't already
     const formatNote = (note: string) => {
       // If note ends with a number (e.g. C4, Bb3), it has an octave
@@ -95,9 +109,14 @@ export const useAudioEngine = () => {
       ? notes.map(formatNote) 
       : formatNote(notes);
 
-    // Play the note(s) with the specified duration and natural velocity
-    sampler.current.triggerAttackRelease(formattedNotes, duration);
+    if (instrument === 'piano') {
+      if (!isLoaded || !sampler.current) return;
+      sampler.current.triggerAttackRelease(formattedNotes, duration);
+    } else if (instrument === 'synth') {
+      if (!synth.current) return;
+      synth.current.triggerAttackRelease(formattedNotes, duration);
+    }
   };
 
-  return { playSound, isLoaded };
+  return { playSound, isLoaded, instrument, setInstrument };
 };

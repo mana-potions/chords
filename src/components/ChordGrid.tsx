@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { generateGridData, type ScaleType, getChordInversions, MINOR_MODES, KEY_OPTIONS, ALL_PICKER_ITEMS, ENHARMONICS } from '../utils/musicEngine'
 import { PianoKeyboard } from './PianoKeyboard'
 import { useClickOutside } from '../hooks/useClickOutside'
-import { useAudioEngine } from '../hooks/useAudioEngine'
+import { useAudioEngine, type InstrumentType } from '../hooks/useAudioEngine'
 import { resolveMidi, extractChordNotes, shiftOctavesDown } from '../utils/chordHelpers'
 
 // --- Sub-Components ---
@@ -239,12 +239,16 @@ const InfoModal = ({
   isOpen,
   onClose,
   chordData,
-  onPlayInversion
+  onPlayInversion,
+  instrument,
+  setInstrument
 }: {
   isOpen: boolean
   onClose: () => void
   chordData: { name: string; notes: string[]; inversions: string[][] } | null
   onPlayInversion: (notes: string[]) => void
+  instrument: InstrumentType
+  setInstrument: (inst: InstrumentType) => void
 }) => {
   const [isVisible, setIsVisible] = useState(false)
   const [shouldRender, setShouldRender] = useState(false)
@@ -295,6 +299,25 @@ const InfoModal = ({
               </span>
             </div>
           ))}
+        </div>
+
+        {/* Subtle Sound Option Menu */}
+        <div className="flex items-center justify-start gap-3 mb-3 px-2">
+          <span className="text-[10px] uppercase tracking-widest text-stone-300 font-bold">Sound</span>
+          <div className="flex bg-stone-100 p-0.5 rounded">
+            <button 
+              onClick={() => setInstrument('piano')}
+              className={`text-[9px] uppercase tracking-wider font-bold px-2 py-1 rounded transition-colors ${instrument === 'piano' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+            >
+              Piano
+            </button>
+            <button 
+              onClick={() => setInstrument('synth')}
+              className={`text-[9px] uppercase tracking-wider font-bold px-2 py-1 rounded transition-colors ${instrument === 'synth' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+            >
+              Synth
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-6 mb-8">
@@ -792,7 +815,7 @@ export const ChordGrid = () => {
   const [isNoteGridOpen, setNoteGridOpen] = useState(false)
   const [enabledKeys, setEnabledKeys] = useState<string[]>(ALL_PICKER_ITEMS)
   const [modalData, setModalData] = useState<{ name: string; notes: string[]; inversions: string[][] } | null>(null)
-  const { playSound } = useAudioEngine()
+  const { playSound, instrument, setInstrument } = useAudioEngine()
 
   const gridData = generateGridData(currentKey, currentMode)
   
@@ -981,7 +1004,9 @@ export const ChordGrid = () => {
             isOpen={modalData !== null} 
             onClose={() => setModalData(null)}
             chordData={modalData}
-          onPlayInversion={(notes) => playSound(notes, '2n')}
+            onPlayInversion={(notes) => playSound(notes, '2n')}
+            instrument={instrument}
+            setInstrument={setInstrument}
           />
 
         </div>
