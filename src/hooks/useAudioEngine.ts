@@ -79,6 +79,7 @@ export const useAudioEngine = () => {
           // iOS Safari bug fix: Only instantiate Sampler and decode audio AFTER context is running
           initSamplerRef.current?.();
 
+          window.removeEventListener('touchstart', unlockAudio, true);
           window.removeEventListener('touchend', unlockAudio, true);
           window.removeEventListener('click', unlockAudio, true);
           window.removeEventListener('keydown', unlockAudio, true);
@@ -88,9 +89,10 @@ export const useAudioEngine = () => {
       }
     };
 
-    // Omit 'pointerdown' and 'touchstart' as they are often untrusted for audio in Safari (seen as scrolls)
-    // Use capture phase (`true`) to intercept the event before React's synthetic 
+    // Use capture phase (`true`) to intercept the event before React's synthetic
     // event delegation or any async propagation drops the gesture token!
+    // Note: `touchstart` is highly recommended for physical iOS devices to reliably unlock.
+    window.addEventListener('touchstart', unlockAudio, true);
     window.addEventListener('touchend', unlockAudio, true);
     window.addEventListener('click', unlockAudio, true);
     window.addEventListener('keydown', unlockAudio, true);
@@ -102,6 +104,7 @@ export const useAudioEngine = () => {
       synth.current = null;
       effects.current?.reverb.dispose();
       effects.current?.limiter.dispose();
+      window.removeEventListener('touchstart', unlockAudio, true);
       window.removeEventListener('touchend', unlockAudio, true);
       window.removeEventListener('click', unlockAudio, true);
       window.removeEventListener('keydown', unlockAudio, true);
