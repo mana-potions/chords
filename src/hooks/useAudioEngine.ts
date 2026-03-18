@@ -1,116 +1,113 @@
-import { useRef, useState, useEffect } from 'react';
-import * as Tone from 'tone';
+import { useState, useEffect, useRef, useCallback } from 'react'
+import * as Tone from 'tone'
 
-export type InstrumentType = 'piano' | 'synth';
+export type InstrumentType = 'piano' | 'synth'
 
 export const useAudioEngine = () => {
-  const sampler = useRef<Tone.Sampler | null>(null);
-  const synth = useRef<Tone.PolySynth | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [instrument, setInstrument] = useState<InstrumentType>('piano');
+  const [instrument, setInstrument] = useState<InstrumentType>('piano')
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  // Use refs to hold Tone instances so they don't re-create on render
+  const sampler = useRef<Tone.Sampler | null>(null)
+  const synth = useRef<Tone.PolySynth | null>(null)
 
   useEffect(() => {
-    // Setup effects for a more realistic and controlled sound.
-    // We use Tone.Freeverb instead of Tone.Reverb. Tone.Reverb uses an 
-    // OfflineAudioContext to render its impulse response, which often hangs
-    // or fails silently on iOS Safari when the main context is suspended.
+    // 1. Setup Shared Effects Chain
+    // Using Freeverb for better iOS support (Tone.Reverb can hang on offline rendering)
     const reverb = new Tone.Freeverb({
       roomSize: 0.7,
-      dampening: 4000
-    }).set({ wet: 0.2 });
-    
-    const limiter = new Tone.Limiter(-2); // Prevent clipping
+      dampening: 4000,
+    }).set({ wet: 0.2 })
 
-    // Instantiate Sampler immediately. Tone.js will handle fetching 
-    // the audio buffers and decoding them.
+    const limiter = new Tone.Limiter(-2)
+
+    // Chain: Input -> Reverb -> Limiter -> Speakers
+    reverb.connect(limiter)
+    limiter.toDestination()
+
+    // 2. Setup Sampler (Piano)
     sampler.current = new Tone.Sampler({
       urls: {
-        A1: "A1.mp3",
-        A2: "A2.mp3",
-        C4: "C4.mp3",
-        "D#4": "Ds4.mp3",
+        A1: 'A1.mp3',
+        A2: 'A2.mp3',
+        C4: 'C4.mp3',
+        'D#4': 'Ds4.mp3',
       },
-      release: 1, // Longer release tail
-      baseUrl: "https://tonejs.github.io/audio/salamander/",
-    }).chain(reverb, limiter, Tone.Destination);
+      baseUrl: 'https://tonejs.github.io/audio/salamander/',
+      release: 1,
+      onload: () => setIsLoaded(true),
+    }).connect(reverb)
 
-    Tone.loaded().then(() => setIsLoaded(true));
-
-    synth.current = new Tone.PolySynth(Tone.Synth, {
-      oscillator: {
-        type: "triangle" // Gentle sound that doesn't pierce
-      },
+    // 3. Setup Synth (PolySynth)
+    const polySynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'triangle' },
       envelope: {
         attack: 0.02,
         decay: 0.1,
         sustain: 0.3,
-        release: 0.1
-      }
-    }).set({ volume: -4 }).chain(reverb, limiter, Tone.Destination);
+        release: 1,
+      },
+    })
 
-    // Crucial for iOS: Unlock the Web Audio context on the first user interaction.
+    polySynth.volume.value = -4
+    polySynth.maxPolyphony = 6
+    polySynth.connect(reverb)
+    synth.current = polySynth
+
+    // 4. Mobile/iOS Audio Context Unlocking
     const unlockAudio = async () => {
       if (Tone.getContext().state !== 'running') {
         try {
-          await Tone.start();
+          await Tone.start()
         } catch (e) {
-          console.error("Failed to unlock audio context:", e);
+          console.error('Audio Context Unlock Failed:', e)
         }
       }
-    };
+    }
 
-    // Use capture phase (`true`) to intercept the event before React's synthetic
-    // event delegation drops the gesture token!
-    const events = ['touchstart', 'touchend', 'mousedown', 'keydown', 'pointerdown'];
-    const handleUnlock = () => {
-      unlockAudio();
-      // Remove listeners once triggered
-      events.forEach(e => window.removeEventListener(e, handleUnlock, true));
-    };
+    const events = ['touchstart', 'touchend', 'mousedown', 'keydown', 'pointerdown']
+    const handleInteraction = () => {
+      unlockAudio()
+      events.forEach((e) => window.removeEventListener(e, handleInteraction, true))
+    }
 
-    events.forEach(e => window.addEventListener(e, handleUnlock, true));
+    events.forEach((e) => window.addEventListener(e, handleInteraction, true))
 
+    // Cleanup
     return () => {
-      sampler.current?.dispose();
-      synth.current?.dispose();
-      reverb.dispose();
-      limiter.dispose();
-      events.forEach(e => window.removeEventListener(e, handleUnlock, true));
-    };
-  }, []);
+      sampler.current?.dispose()
+      synth.current?.dispose()
+      reverb.dispose()
+      limiter.dispose()
+      events.forEach((e) => window.removeEventListener(e, handleInteraction, true))
+    }
+  }, [])
 
-  // Changed default from '2n' (1s) to '8n' (0.25s) for snappy keyboard response
-  const playSound = async (notes: string | string[], duration: string = '8n') => {
-    // Fallback to start context if it missed the initial interaction
-    if (Tone.getContext().state !== 'running') {
-      try {
-        await Tone.start();
-      } catch (e) {
-        console.error("Failed to start Tone context during play:", e);
+  const playSound = useCallback(
+    (notes: string | string[], duration: string = '2n') => {
+      // Emergency wake-up for AudioContext
+      if (Tone.getContext().state !== 'running') {
+        Tone.start().catch(() => {})
       }
-    }
 
-    const formatNote = (note: string) => {
-      if (/\d$/.test(note)) return note;
-      return `${note}4`;
-    };
+      const notesArray = Array.isArray(notes) ? notes : [notes]
 
-    const formattedNotes = Array.isArray(notes) 
-      ? notes.map(formatNote) 
-      : formatNote(notes);
+      // Format notes: Ensure octave is present (default to 4)
+      // e.g., "C" -> "C4", "Db" -> "Db4", "C#5" -> "C#5"
+      const formattedNotes = notesArray.map((n) => (/\d/.test(n) ? n : `${n}4`))
 
-    const time = Tone.now();
+      // Small lookahead to prevent scheduling glitches
+      const time = Tone.now() + 0.05
 
-    if (instrument === 'piano') {
-      // Removed the strict !isLoaded check. The piano will attempt to play
-      // even if the flag is false, which fixes issues where onload doesn't fire on iOS.
-      if (!sampler.current) return;
-      sampler.current.triggerAttackRelease(formattedNotes, duration, time);
-    } else if (instrument === 'synth') {
-      if (!synth.current) return;
-      synth.current.triggerAttackRelease(formattedNotes, duration, time);
-    }
-  };
+      if (instrument === 'piano') {
+        // Sampler might not be loaded yet, but triggerAttackRelease handles it gracefully usually
+        sampler.current?.triggerAttackRelease(formattedNotes, duration, time)
+      } else {
+        synth.current?.triggerAttackRelease(formattedNotes, duration, time)
+      }
+    },
+    [instrument]
+  )
 
-  return { playSound, isLoaded, instrument, setInstrument };
-};
+  return { playSound, isLoaded, instrument, setInstrument }
+}
