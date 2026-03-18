@@ -35,8 +35,9 @@ export const useAudioEngine = () => {
       },
       release: 1, // Longer release tail
       baseUrl: "https://tonejs.github.io/audio/salamander/",
-      onload: () => setIsLoaded(true)
     }).chain(reverb, limiter, Tone.Destination);
+
+    Tone.loaded().then(() => setIsLoaded(true));
 
     synth.current = new Tone.PolySynth(Tone.Synth, {
       oscillator: {
@@ -112,7 +113,7 @@ export const useAudioEngine = () => {
     notesArray.forEach(n => { lastNotePlaysRef.current[n] = nowMs; });
 
     if (instrument === 'piano') {
-      if (!sampler.current || !isLoaded) return;
+      if (!sampler.current) return;
       sampler.current.triggerAttackRelease(formattedNotes, duration, time);
     } else if (instrument === 'synth') {
       if (!synth.current) return;
