@@ -14,7 +14,7 @@ export const useAudioEngine = () => {
 
   // 1. Initialize Default Synth (Always available)
   useEffect(() => {
-    const poly = new Tone.PolySynth(Tone.Synth, {
+    const poly = new Tone.PolySynth(Tone.Synth).set({
       oscillator: { type: 'triangle' },
       envelope: {
         attack: 0.02,
@@ -132,7 +132,7 @@ export const useAudioEngine = () => {
         const notesArray = Array.isArray(notes) ? notes : [notes];
         // Ensure octave
         const formattedNotes = notesArray.map((n) => (/\d/.test(n) ? n : `${n}4`));
-
+        
         if (instrument === 'piano') {
           // Check if sampler exists and is loaded
           if (sampler.current && sampler.current.loaded) {
