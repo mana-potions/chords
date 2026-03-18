@@ -44,7 +44,7 @@ export const useAudioEngine = () => {
         attack: 0.02,
         decay: 0.1,
         sustain: 0.3,
-        release: 1
+        release: 0.1
       }
     }).set({ volume: -4 }).chain(reverb, limiter, Tone.Destination);
 
@@ -79,7 +79,8 @@ export const useAudioEngine = () => {
     };
   }, []);
 
-  const playSound = async (notes: string | string[], duration: string = '2n') => {
+  // Changed default from '2n' (1s) to '8n' (0.25s) for snappy keyboard response
+  const playSound = async (notes: string | string[], duration: string = '8n') => {
     // Fallback to start context if it missed the initial interaction
     if (Tone.getContext().state !== 'running') {
       try {
@@ -107,14 +108,7 @@ export const useAudioEngine = () => {
       sampler.current.triggerAttackRelease(formattedNotes, duration, time);
     } else if (instrument === 'synth') {
       if (!synth.current) return;
-      // This is the fix for the infinite sustain bug on iOS.
-      // By explicitly releasing the note(s) just before the new attack, we prevent
-      // "zombie" voices from being orphaned by Tone.PolySynth's voice allocator,
-      // which can happen on rapid re-triggers (common with touch events).
-      // The small offset for the attack is crucial to give the audio scheduler
-      // time to process the release, preventing the sound from being "choked".
-      synth.current.triggerRelease(formattedNotes, time);
-      synth.current.triggerAttackRelease(formattedNotes, duration, time + 0.01);
+      synth.current.triggerAttackRelease(formattedNotes, duration, time);
     }
   };
 
