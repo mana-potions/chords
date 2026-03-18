@@ -107,7 +107,14 @@ export const useAudioEngine = () => {
       sampler.current.triggerAttackRelease(formattedNotes, duration, time);
     } else if (instrument === 'synth') {
       if (!synth.current) return;
-      synth.current.triggerAttackRelease(formattedNotes, duration, time);
+      // This is the fix for the infinite sustain bug on iOS.
+      // By explicitly releasing the note(s) just before the new attack, we prevent
+      // "zombie" voices from being orphaned by Tone.PolySynth's voice allocator,
+      // which can happen on rapid re-triggers (common with touch events).
+      // The small offset for the attack is crucial to give the audio scheduler
+      // time to process the release, preventing the sound from being "choked".
+      synth.current.triggerRelease(formattedNotes, time);
+      synth.current.triggerAttackRelease(formattedNotes, duration, time + 0.01);
     }
   };
 
