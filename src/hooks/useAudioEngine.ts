@@ -8,8 +8,8 @@ export const useAudioEngine = () => {
   const [isLoaded, setIsLoaded] = useState(false)
 
   // Use refs to keep track of the Tone instances across renders
-  const sampler = useRef<Tone.Sampler | null>(null)
-  const synth = useRef<Tone.PolySynth | null>(null)
+  const sampler = useRef<Tone.Sampler | null>(null);
+  const synth = useRef<Tone.PolySynth | null>(null);
 
   useEffect(() => {
     // 1. Create Synth
@@ -24,61 +24,75 @@ export const useAudioEngine = () => {
     })
     
     // Set PolySynth attributes directly to avoid type issues with .set()
-    poly.volume.value = -4
-    poly.maxPolyphony = 6
-    poly.toDestination()
-
-    // 2. Create Sampler
-    const sam = new Tone.Sampler({
-      urls: {
-        A1: 'A1.mp3',
-        A2: 'A2.mp3',
-        C4: 'C4.mp3',
-        'D#4': 'Ds4.mp3',
-      },
-      baseUrl: 'https://tonejs.github.io/audio/salamander/',
-      release: 1,
-      onload: () => {
-        setIsLoaded(true)
-      },
-      // Safely handle loading errors
-      onerror: (e) => {
-        console.warn("Sampler failed to load", e)
-      }
-    })
-    sam.toDestination()
+    poly.volume.value = -4;
+    poly.maxPolyphony = 6;
+    poly.toDestination();
 
     // Store in refs
-    synth.current = poly
-    sampler.current = sam
+    synth.current = poly;
 
     // Cleanup function
     return () => {
-      sam.dispose()
-      poly.dispose()
+      // Dispose both instruments if they exist
+      synth.current?.dispose();
+      sampler.current?.dispose();
       
       // Clear refs
-      sampler.current = null
-      synth.current = null
+      sampler.current = null;
+      synth.current = null;
     }
   }, [])
 
   const playSound = useCallback(
     async (notes: string | string[], duration: string = '2n') => {
       try {
-        // iOS Safety: Ensure context is running on user action (play)
+        // Always ensure context is running on any sound play
         if (Tone.getContext().state !== 'running') {
-          await Tone.start()
+          await Tone.start();
         }
 
-        const notesArray = Array.isArray(notes) ? notes : [notes]
+        const notesArray = Array.isArray(notes) ? notes : [notes];
         // Ensure octave
-        const formattedNotes = notesArray.map((n) => (/\d/.test(n) ? n : `${n}4`))
+        const formattedNotes = notesArray.map((n) => (/\d/.test(n) ? n : `${n}4`));
 
         if (instrument === 'piano') {
-          // Check if sampler exists before triggering
-          if (sampler.current) {
-             sampler.current.triggerAttackRelease(formattedNotes, duration)
+          // LAZY INITIALIZATION: If sampler doesn't exist, create it now.
+          // This is inside a user-initiated action, so AudioContext will be running.
+          if (!sampler.current) {
+            console.log("Initializing sampler for the first time...");
+            const sam = new Tone.Sampler({
+              urls: {
+                A1: 'A1.mp3',
+                A2: 'A2.mp3',
+                C4: 'C4.mp3',
+                'D#4': 'Ds4.mp3',
+              },
+              baseUrl: 'https://tonejs.github.io/audio/salamander/',
+              release: 1,
+              onload: () => {
+                console.log("Sampler loaded, playing initial note.");
+                setIsLoaded(true);
+                // Play the note that triggered the loading
+                sam.triggerAttackRelease(formattedNotes, duration);
+              },
+              onerror: (e) => {
+                console.error("Sampler failed to load:", e);
+                // Fallback to synth if loading fails
+                synth.current?.triggerAttackRelease(formattedNotes, duration);
+              }
+            }).toDestination();
+            sampler.current = sam;
+            // Return early, sound will be played in the 'onload' callback
+            return;
+          }
+
+          // If sampler exists, check if it's loaded before playing
+          if (sampler.current.loaded) {
+            sampler.current.triggerAttackRelease(formattedNotes, duration);
+          } else {
+            console.warn("Sampler is still loading...");
+            // Optional: play a synth note as a fallback while loading
+            synth.current?.triggerAttackRelease(formattedNotes, duration);
           }
         } else {
           // Check if synth exists
@@ -88,11 +102,11 @@ export const useAudioEngine = () => {
         }
       } catch (e) {
         // Prevent UI crash if audio fails
-        console.error("Error playing sound:", e)
+        console.error("Error playing sound:", e);
       }
     },
     [instrument]
-  )
+  );
 
-  return { playSound, isLoaded, instrument, setInstrument }
-}
+  return { playSound, isLoaded, instrument, setInstrument };
+};
