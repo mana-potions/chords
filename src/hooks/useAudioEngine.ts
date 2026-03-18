@@ -47,18 +47,25 @@ export const useAudioEngine = () => {
     console.log("[AudioEngine] Initializing Sampler...");
     console.log("[AudioEngine] AudioContext state:", Tone.getContext().state);
 
-    // Diagnostic: Check if we can actually reach the file directly via fetch
-    // This separates Network/CORS issues from Tone.js decoding issues
+    // URL Options
+    const PRIMARY_URL = 'https://tonejs.github.io/audio/salamander/';
+    // Backup: Raw GitHub content often has more permissive CORS headers or different routing
+    const BACKUP_URL = 'https://raw.githubusercontent.com/Tonejs/audio/master/salamander/';
+    
+    let validBaseUrl = PRIMARY_URL;
+
+    // 1. Diagnostic / Connectivity Check with Fallback
     try {
-        const testUrl = 'https://tonejs.github.io/audio/salamander/C4.mp3';
-        console.log(`[AudioEngine] Diagnostic fetch to: ${testUrl}`);
-        const response = await fetch(testUrl);
-        console.log(`[AudioEngine] Diagnostic fetch response: ${response.status} ${response.statusText}`);
+        const testFile = 'C4.mp3';
+        console.log(`[AudioEngine] Testing connection to primary: ${PRIMARY_URL}${testFile}`);
+        const response = await fetch(PRIMARY_URL + testFile, { method: 'HEAD', mode: 'cors' });
+        
         if (!response.ok) {
-            console.error("[AudioEngine] Network resource not available:", response.status);
+            throw new Error(`Primary CDN failed: ${response.status}`);
         }
     } catch (e) {
-        console.error("[AudioEngine] Diagnostic fetch failed (Network/CORS):", e);
+        console.warn("[AudioEngine] Primary CDN failed. Switching to backup URL...", e);
+        validBaseUrl = BACKUP_URL;
     }
 
     try {
@@ -69,7 +76,7 @@ export const useAudioEngine = () => {
                 C4: 'C4.mp3',
                 'D#4': 'Ds4.mp3',
             },
-            baseUrl: 'https://tonejs.github.io/audio/salamander/',
+            baseUrl: validBaseUrl,
             release: 1,
             onload: () => {
                 console.log("[AudioEngine] Sampler loaded successfully.");
@@ -77,6 +84,8 @@ export const useAudioEngine = () => {
             },
             onerror: (e) => {
                 console.error("[AudioEngine] Sampler failed to load:", e);
+                // Revert UI to synth if real loading fails
+                setInstrumentState('synth'); 
             }
         }).toDestination();
         
