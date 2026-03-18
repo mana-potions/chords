@@ -41,11 +41,26 @@ export const useAudioEngine = () => {
   }, [])
 
   // 2. Helper to load the piano samples
-  const initializeSampler = useCallback(() => {
+  const initializeSampler = useCallback(async () => {
     if (sampler.current) return; // Already initialized
 
     console.log("[AudioEngine] Initializing Sampler...");
-    
+    console.log("[AudioEngine] AudioContext state:", Tone.getContext().state);
+
+    // Diagnostic: Check if we can actually reach the file directly via fetch
+    // This separates Network/CORS issues from Tone.js decoding issues
+    try {
+        const testUrl = 'https://tonejs.github.io/audio/salamander/C4.mp3';
+        console.log(`[AudioEngine] Diagnostic fetch to: ${testUrl}`);
+        const response = await fetch(testUrl);
+        console.log(`[AudioEngine] Diagnostic fetch response: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+            console.error("[AudioEngine] Network resource not available:", response.status);
+        }
+    } catch (e) {
+        console.error("[AudioEngine] Diagnostic fetch failed (Network/CORS):", e);
+    }
+
     try {
         const sam = new Tone.Sampler({
             urls: {
