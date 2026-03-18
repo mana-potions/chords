@@ -9,6 +9,9 @@ export const useAudioEngine = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [instrument, setInstrument] = useState<InstrumentType>('piano');
 
+  // Track the last time a specific note was played to prevent touch-bounce double triggers
+  const lastNotePlaysRef = useRef<Record<string, number>>({});
+
   useEffect(() => {
     // Setup effects for a more realistic and controlled sound.
     // We use Tone.Freeverb instead of Tone.Reverb. Tone.Reverb uses an 
@@ -99,12 +102,24 @@ export const useAudioEngine = () => {
 
     const time = Tone.now();
 
+    // Prevent hardware touch-bounces from triggering rapid duplicate attacks on the same note,
+    // which causes Tone.js PolySynth to leak voices and infinitely sustain.
+    const notesArray = Array.isArray(formattedNotes) ? formattedNotes : [formattedNotes];
+    const nowMs = Date.now();
+    const isBounce = notesArray.every(n => nowMs - (lastNotePlaysRef.current[n] || 0) < 50);
+    
+    if (isBounce) return;
+    notesArray.forEach(n => { lastNotePlaysRef.current[n] = nowMs; });
+
     if (instrument === 'piano') {
       if (!sampler.current || !isLoaded) return;
       sampler.current.triggerAttackRelease(formattedNotes, duration, time);
     } else if (instrument === 'synth') {
       if (!synth.current) return;
-      synth.current.triggerAttackRelease(formattedNotes, duration, time);
+      // Explicitly release the note right before striking to prevent zombie voices,
+      // using a 10ms offset on the attack so the Tone.js allocator doesn't choke.
+      synth.current.triggerRelease(formattedNotes, time);
+      synth.current.triggerAttackRelease(formattedNotes, duration, time + 0.01);
     }
   };
 
