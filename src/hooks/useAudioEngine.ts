@@ -69,26 +69,6 @@ export const useAudioEngine = () => {
     synth.current = poly
     sampler.current = sam
 
-    // 5. Setup Audio Context Unlock for Mobile
-    const unlockAudio = async () => {
-      if (Tone.getContext().state !== 'running') {
-        try {
-          await Tone.start()
-          console.log("Audio Context Started")
-        } catch (e) {
-          console.error("Failed to start Audio Context", e)
-        }
-      }
-    }
-
-    // Attach unlock listener to widespread events
-    const events = ['touchstart', 'touchend', 'mousedown', 'keydown', 'click']
-    const handleInteraction = () => {
-      unlockAudio()
-      events.forEach((e) => window.removeEventListener(e, handleInteraction, true))
-    }
-    events.forEach((e) => window.addEventListener(e, handleInteraction, true))
-
     // Cleanup function
     return () => {
       sam.dispose()
@@ -101,8 +81,6 @@ export const useAudioEngine = () => {
       synth.current = null
       reverb.current = null
       limiter.current = null
-      
-      events.forEach((e) => window.removeEventListener(e, handleInteraction, true))
     }
   }, [])
 
