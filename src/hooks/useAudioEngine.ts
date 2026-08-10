@@ -132,18 +132,22 @@ export const useAudioEngine = () => {
         // Ensure octave
         const formattedNotes = notesArray.map((n) => (/\d/.test(n) ? n : `${n}4`));
         
+        // THE FIX: Manually convert the duration notation (e.g., '2n') to seconds.
+        // This avoids a bug in Tone.js where tempo-relative time can be calculated as 0 if the Transport is not running.
+        const durationInSeconds = Tone.Time(duration).toSeconds();
+
         if (instrument === 'piano') {
           // Check if sampler exists and is loaded
           if (sampler.current && sampler.current.loaded) {
-             sampler.current.triggerAttackRelease(formattedNotes, duration);
+             sampler.current.triggerAttackRelease(formattedNotes, durationInSeconds);
           } else {
              // FALLBACK: Play synth if piano is loading or failed
              console.warn("[AudioEngine] Piano not ready. Using synth fallback.");
-             synth.current?.triggerAttackRelease(formattedNotes, duration);
+             synth.current?.triggerAttackRelease(formattedNotes, durationInSeconds);
           }
         } else {
           // Play Synth
-          synth.current?.triggerAttackRelease(formattedNotes, duration);
+          synth.current?.triggerAttackRelease(formattedNotes, durationInSeconds);
         }
       } catch (e) {
         console.error("[AudioEngine] Error playing sound:", e);
