@@ -119,8 +119,8 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
               disabled={!step.isCompleted}
               onClick={() => step.isCompleted ? onReplayChord(index) : undefined}
               className={`transition-all duration-300 focus:outline-none ${
-                step.isCompleted 
-                  ? 'opacity-100 text-yellow-500 scale-110 hover:scale-[1.15] cursor-pointer' 
+                step.isCompleted
+                  ? 'opacity-100 text-blue-500 scale-110 hover:scale-[1.15] cursor-pointer'
                   : 'opacity-30 text-stone-600 cursor-default'
               } ${bouncingStep === index ? 'animate-pop' : ''}`}
             >
@@ -147,8 +147,8 @@ const GameArea = ({ gameSteps, bouncingStep, currentChord, isExiting, isInitialL
             onClick={onNextRound}
             aria-label="Next Round"
             className={`shrink-0 flex items-center justify-center transition-all duration-300 ease-in-out outline-none focus:outline-none focus:ring-0 [-webkit-tap-highlight-color:transparent]
-              ${isRoundComplete
-                ? 'text-yellow-500 hover:text-yellow-400 animate-bounce-right drop-shadow-md cursor-pointer'
+              ${isRoundComplete ?
+                'text-blue-500 hover:text-blue-400 animate-bounce-right drop-shadow-md cursor-pointer'
                 : 'text-stone-300 hover:text-stone-400'
               }
             `}

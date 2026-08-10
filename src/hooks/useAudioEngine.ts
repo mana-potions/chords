@@ -18,15 +18,14 @@ export const useAudioEngine = () => {
       oscillator: { type: 'triangle' },
       envelope: {
         attack: 0.02,
-        decay: 0.1,
-        sustain: 0.3,
-        release: 1,
+        decay: 0.4,    // Smoother decay
+        sustain: 0.2,  // Less ducking
+        release: 0.3,
       },
     })
     
-    // Set PolySynth attributes
-    poly.volume.value = -4;
-    poly.maxPolyphony = 6;
+    poly.volume.value = -6; // Adjusted volume for new envelope
+    poly.maxPolyphony = 8; // Increased polyphony slightly
     poly.toDestination();
 
     synth.current = poly;
@@ -77,7 +76,7 @@ export const useAudioEngine = () => {
                 'D#4': 'Ds4.mp3',
             },
             baseUrl: validBaseUrl,
-            release: 1,
+            release: 0.4, // Significantly shortened release
             onload: () => {
                 console.log("[AudioEngine] Sampler loaded successfully.");
                 setIsLoaded(true);
@@ -150,7 +149,7 @@ export const useAudioEngine = () => {
         console.error("[AudioEngine] Error playing sound:", e);
       }
     },
-    [instrument]
+    [instrument, isLoaded]
   );
 
   return { playSound, isLoaded, instrument, setInstrument };
