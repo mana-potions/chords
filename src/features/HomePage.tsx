@@ -15,13 +15,13 @@ export const HomePage = () => {
 
       <div className="space-y-8 text-lg text-stone-600 leading-relaxed font-light text-center">
         <p>
-          Practice is not a chore to be completed; it is an active meditation where the physical and the spiritual collide. When you pick up your instrument, you aren't just repeating scales—you are training your nervous system to become a conduit for something larger than yourself.
+          Practice isn't just a chore; it is an active meditation. Where physical and spiritual energies synergize. When we spend time with an instrument, we aren't just repping scales and chord shapes—we are training our minds to become a medium for producing something larger than ourselves.
         </p>
         <p>
-          The initial effort is like clearing a path through a dense forest. It requires discipline and sweat. But as the "exercise" becomes second nature, the ego begins to quiet. This is the threshold of the flow state: that sublime moment where the friction of "trying" disappears, and the music starts to play you.
+          The first efforts are like cutting a path through a dense forest. It requires discipline. But as the "exercise" turns into second nature, what was once set in our ways begins to quiet. This is the precipice of the flow state: that moment where the friction of "trying" disappears, and the music starts to flow freely out of us.
         </p>
         <p>
-          In this space, time stretches, the world’s noise fades, and you exist entirely in the resonance of the present. Trust the process. Embrace the repetition. Beneath the technical work lies a profound silence that only your music can unlock.
+          In the space of practice, time should stretch, the world’s noise should fade, and we exist entirely in the churning of the present. Trust the process. Embrace the repetition. Beneath the technical work lies a profound growth that only our music can unlock.
         </p>
       </div>
 
