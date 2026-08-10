@@ -14,14 +14,6 @@ export const useAudioEngine = () => {
 
   // 1. Initialize Default Synth (Always available)
   useEffect(() => {
-    // Configure the Tone.js worker to be loaded from the public directory. This is necessary
-    // to comply with Content Security Policy (CSP) in production environments like Vercel.
-    // We pass the path directly to the Worker constructor, avoiding `new URL(...)` which
-    // can cause bundling issues with static assets in Vite's production build.
-    const worker = new Worker('/ToneWorker.js', { type: 'module' });
-    const context = new Tone.Context({ latencyHint: "interactive", worker });
-    Tone.setContext(context);
-
     const poly = new Tone.PolySynth(Tone.Synth).set({
       oscillator: { type: 'triangle' },
       envelope: {
@@ -140,23 +132,25 @@ export const useAudioEngine = () => {
         // Ensure octave
         const formattedNotes = notesArray.map((n) => (/\d/.test(n) ? n : `${n}4`));
         
-        // THE DEFINITIVE FIX: Use a fixed numeric duration.
-        // In production builds, Tone.Time('2n').toSeconds() can resolve to 0 if the Transport
-        // is not running, causing infinite sustain. A fixed value is environment-agnostic.
-        const DURATION_IN_SECONDS = 1;
+        // EXPERIMENT: Separate attack and release to test triggerRelease in production.
+        const now = Tone.now();
+        const releaseTime = now + 1; // Hardcode a 1-second release time.
 
         if (instrument === 'piano') {
           // Check if sampler exists and is loaded
           if (sampler.current && sampler.current.loaded) {
-             sampler.current.triggerAttackRelease(formattedNotes, DURATION_IN_SECONDS);
+             sampler.current.triggerAttack(formattedNotes, now);
+             sampler.current.triggerRelease(formattedNotes, releaseTime);
           } else {
              // FALLBACK: Play synth if piano is loading or failed
              console.warn("[AudioEngine] Piano not ready. Using synth fallback.");
-             synth.current?.triggerAttackRelease(formattedNotes, DURATION_IN_SECONDS);
+             synth.current?.triggerAttack(formattedNotes, now);
+             synth.current?.triggerRelease(formattedNotes, releaseTime);
           }
         } else {
           // Play Synth
-          synth.current?.triggerAttackRelease(formattedNotes, DURATION_IN_SECONDS);
+          synth.current?.triggerAttack(formattedNotes, now);
+          synth.current?.triggerRelease(formattedNotes, releaseTime);
         }
       } catch (e) {
         console.error("[AudioEngine] Error playing sound:", e);
