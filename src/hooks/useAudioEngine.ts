@@ -134,7 +134,7 @@ export const useAudioEngine = () => {
         
         // Use a fixed numeric duration. In production builds, Tone.Time('2n') can resolve to 0
         // if the Transport is not running, causing infinite sustain. A fixed value is environment-agnostic.
-        const DURATION_IN_SECONDS = 1.5;
+        const DURATION_IN_SECONDS = duration ?? 1;
 
         if (instrument === 'piano') {
           // Check if sampler exists and is loaded
