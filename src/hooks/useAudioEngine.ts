@@ -14,6 +14,13 @@ export const useAudioEngine = () => {
 
   // 1. Initialize Default Synth (Always available)
   useEffect(() => {
+    // This is the crucial fix for the production sustain issue.
+    // By default, Tone.js creates its timing worker from a Blob, which is blocked by
+    // Vercel's Content Security Policy. By providing a URL to a static worker file
+    // (which you must copy to your /public folder), we ensure the worker can load,
+    // allowing scheduled events like `triggerRelease` to function correctly in production.
+    Tone.Context.worker = "/ToneWorker.js";
+
     const poly = new Tone.PolySynth(Tone.Synth).set({
       oscillator: { type: 'triangle' },
       envelope: {
