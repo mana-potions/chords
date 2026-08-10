@@ -14,6 +14,14 @@ export const useAudioEngine = () => {
 
   // 1. Initialize Default Synth (Always available)
   useEffect(() => {
+    // Configure the Tone.js worker to be loaded from the public directory. This is necessary
+    // to comply with Content Security Policy (CSP) in production environments like Vercel.
+    // We pass the path directly to the Worker constructor, avoiding `new URL(...)` which
+    // can cause bundling issues with static assets in Vite's production build.
+    const worker = new Worker('/ToneWorker.js', { type: 'module' });
+    const context = new Tone.Context({ latencyHint: "interactive", worker });
+    Tone.setContext(context);
+
     const poly = new Tone.PolySynth(Tone.Synth).set({
       oscillator: { type: 'triangle' },
       envelope: {
